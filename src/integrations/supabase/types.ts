@@ -14,7 +14,186 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      kyc_verifications: {
+        Row: {
+          created_at: string
+          document_back_url: string | null
+          document_front_url: string | null
+          document_type: string | null
+          id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          selfie_url: string | null
+          status: Database["public"]["Enums"]["kyc_status"]
+          submitted_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_back_url?: string | null
+          document_front_url?: string | null
+          document_type?: string | null
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          selfie_url?: string | null
+          status?: Database["public"]["Enums"]["kyc_status"]
+          submitted_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_back_url?: string | null
+          document_front_url?: string | null
+          document_type?: string | null
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          selfie_url?: string | null
+          status?: Database["public"]["Enums"]["kyc_status"]
+          submitted_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          created_at: string
+          destination_address: string | null
+          destination_amount: number | null
+          destination_chain: string | null
+          destination_token: string | null
+          fee_amount: number | null
+          fee_currency: string | null
+          fiat_amount: number | null
+          fiat_currency: string | null
+          id: string
+          metadata: Json | null
+          moonpay_transaction_id: string | null
+          source_amount: number | null
+          source_chain: string | null
+          source_token: string | null
+          status: Database["public"]["Enums"]["transaction_status"]
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+          tx_hash: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          destination_address?: string | null
+          destination_amount?: number | null
+          destination_chain?: string | null
+          destination_token?: string | null
+          fee_amount?: number | null
+          fee_currency?: string | null
+          fiat_amount?: number | null
+          fiat_currency?: string | null
+          id?: string
+          metadata?: Json | null
+          moonpay_transaction_id?: string | null
+          source_amount?: number | null
+          source_chain?: string | null
+          source_token?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+          tx_hash?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          destination_address?: string | null
+          destination_amount?: number | null
+          destination_chain?: string | null
+          destination_token?: string | null
+          fee_amount?: number | null
+          fee_currency?: string | null
+          fiat_amount?: number | null
+          fiat_currency?: string | null
+          id?: string
+          metadata?: Json | null
+          moonpay_transaction_id?: string | null
+          source_amount?: number | null
+          source_chain?: string | null
+          source_token?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          transaction_type?: Database["public"]["Enums"]["transaction_type"]
+          tx_hash?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wallet_connections: {
+        Row: {
+          chain_id: string | null
+          connected_at: string
+          created_at: string
+          id: string
+          is_primary: boolean | null
+          last_used_at: string | null
+          user_id: string
+          wallet_address: string
+          wallet_type: Database["public"]["Enums"]["wallet_type"]
+        }
+        Insert: {
+          chain_id?: string | null
+          connected_at?: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          last_used_at?: string | null
+          user_id: string
+          wallet_address: string
+          wallet_type: Database["public"]["Enums"]["wallet_type"]
+        }
+        Update: {
+          chain_id?: string | null
+          connected_at?: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          last_used_at?: string | null
+          user_id?: string
+          wallet_address?: string
+          wallet_type?: Database["public"]["Enums"]["wallet_type"]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +202,21 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      kyc_status: "not_started" | "pending" | "approved" | "rejected"
+      transaction_status:
+        | "pending"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      transaction_type: "buy" | "swap" | "send" | "receive"
+      wallet_type:
+        | "metamask"
+        | "walletconnect"
+        | "coinbase"
+        | "phantom"
+        | "tronlink"
+        | "bitcoin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +343,24 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      kyc_status: ["not_started", "pending", "approved", "rejected"],
+      transaction_status: [
+        "pending",
+        "processing",
+        "completed",
+        "failed",
+        "cancelled",
+      ],
+      transaction_type: ["buy", "swap", "send", "receive"],
+      wallet_type: [
+        "metamask",
+        "walletconnect",
+        "coinbase",
+        "phantom",
+        "tronlink",
+        "bitcoin",
+      ],
+    },
   },
 } as const
