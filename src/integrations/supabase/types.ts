@@ -16,42 +16,75 @@ export type Database = {
     Tables: {
       kyc_verifications: {
         Row: {
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
+          country: string | null
           created_at: string
+          date_of_birth: string | null
           document_back_url: string | null
           document_front_url: string | null
           document_type: string | null
+          first_name: string | null
           id: string
+          last_name: string | null
+          phone_number: string | null
+          postal_code: string | null
           rejection_reason: string | null
           reviewed_at: string | null
           selfie_url: string | null
+          ssn_encrypted: string | null
+          state: string | null
           status: Database["public"]["Enums"]["kyc_status"]
           submitted_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
+          date_of_birth?: string | null
           document_back_url?: string | null
           document_front_url?: string | null
           document_type?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
+          phone_number?: string | null
+          postal_code?: string | null
           rejection_reason?: string | null
           reviewed_at?: string | null
           selfie_url?: string | null
+          ssn_encrypted?: string | null
+          state?: string | null
           status?: Database["public"]["Enums"]["kyc_status"]
           submitted_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
+          date_of_birth?: string | null
           document_back_url?: string | null
           document_front_url?: string | null
           document_type?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
+          phone_number?: string | null
+          postal_code?: string | null
           rejection_reason?: string | null
           reviewed_at?: string | null
           selfie_url?: string | null
+          ssn_encrypted?: string | null
+          state?: string | null
           status?: Database["public"]["Enums"]["kyc_status"]
           submitted_at?: string | null
           updated_at?: string
