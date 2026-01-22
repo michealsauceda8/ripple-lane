@@ -5,19 +5,27 @@ import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
 import { User, Calendar, Phone, Lock, Eye, EyeOff } from 'lucide-react';
 
-interface PersonalInfoFormProps {
-  data: {
-    firstName: string;
-    lastName: string;
-    dateOfBirth: string;
-    ssn: string;
-    phoneNumber: string;
-  };
-  onChange: (data: PersonalInfoFormProps['data']) => void;
-  onNext: () => void;
+export interface PersonalInfoData {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  ssn: string;
+  phoneNumber: string;
 }
 
-export function PersonalInfoForm({ data, onChange, onNext }: PersonalInfoFormProps) {
+interface PersonalInfoFormProps {
+  onSubmit: (data: PersonalInfoData) => void;
+  initialData?: PersonalInfoData;
+}
+
+export function PersonalInfoForm({ onSubmit, initialData }: PersonalInfoFormProps) {
+  const [data, setData] = useState<PersonalInfoData>(initialData || {
+    firstName: '',
+    lastName: '',
+    dateOfBirth: '',
+    ssn: '',
+    phoneNumber: '',
+  });
   const [showSSN, setShowSSN] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -37,12 +45,12 @@ export function PersonalInfoForm({ data, onChange, onNext }: PersonalInfoFormPro
 
   const handleSSNChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatSSN(e.target.value);
-    onChange({ ...data, ssn: formatted });
+    setData({ ...data, ssn: formatted });
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhone(e.target.value);
-    onChange({ ...data, phoneNumber: formatted });
+    setData({ ...data, phoneNumber: formatted });
   };
 
   const validate = () => {
@@ -66,9 +74,9 @@ export function PersonalInfoForm({ data, onChange, onNext }: PersonalInfoFormPro
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
+  const handleSubmit = () => {
     if (validate()) {
-      onNext();
+      onSubmit(data);
     }
   };
 
@@ -83,7 +91,7 @@ export function PersonalInfoForm({ data, onChange, onNext }: PersonalInfoFormPro
         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
           <User className="h-8 w-8 text-primary" />
         </div>
-        <h3 className="text-xl font-semibold">Personal Information</h3>
+        <h3 className="text-xl font-semibold text-foreground">Personal Information</h3>
         <p className="text-muted-foreground text-sm mt-1">
           Please enter your legal information as it appears on your ID
         </p>
@@ -96,7 +104,7 @@ export function PersonalInfoForm({ data, onChange, onNext }: PersonalInfoFormPro
             id="firstName"
             placeholder="John"
             value={data.firstName}
-            onChange={(e) => onChange({ ...data, firstName: e.target.value })}
+            onChange={(e) => setData({ ...data, firstName: e.target.value })}
             className={errors.firstName ? 'border-destructive' : ''}
           />
           {errors.firstName && (
@@ -109,7 +117,7 @@ export function PersonalInfoForm({ data, onChange, onNext }: PersonalInfoFormPro
             id="lastName"
             placeholder="Doe"
             value={data.lastName}
-            onChange={(e) => onChange({ ...data, lastName: e.target.value })}
+            onChange={(e) => setData({ ...data, lastName: e.target.value })}
             className={errors.lastName ? 'border-destructive' : ''}
           />
           {errors.lastName && (
@@ -127,7 +135,7 @@ export function PersonalInfoForm({ data, onChange, onNext }: PersonalInfoFormPro
           id="dob"
           type="date"
           value={data.dateOfBirth}
-          onChange={(e) => onChange({ ...data, dateOfBirth: e.target.value })}
+          onChange={(e) => setData({ ...data, dateOfBirth: e.target.value })}
           className={errors.dateOfBirth ? 'border-destructive' : ''}
           max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
         />
@@ -184,7 +192,7 @@ export function PersonalInfoForm({ data, onChange, onNext }: PersonalInfoFormPro
         )}
       </div>
 
-      <Button onClick={handleNext} className="w-full" size="lg">
+      <Button onClick={handleSubmit} className="w-full" size="lg">
         Continue
       </Button>
     </motion.div>

@@ -59,20 +59,30 @@ const US_STATES = [
   { value: 'WY', label: 'Wyoming' },
 ];
 
-interface AddressFormProps {
-  data: {
-    addressLine1: string;
-    addressLine2: string;
-    city: string;
-    state: string;
-    postalCode: string;
-  };
-  onChange: (data: AddressFormProps['data']) => void;
-  onNext: () => void;
-  onBack: () => void;
+export interface AddressData {
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
 }
 
-export function AddressForm({ data, onChange, onNext, onBack }: AddressFormProps) {
+interface AddressFormProps {
+  onSubmit: (data: AddressData) => void;
+  onBack: () => void;
+  initialData?: AddressData;
+}
+
+export function AddressForm({ onSubmit, onBack, initialData }: AddressFormProps) {
+  const [data, setData] = useState<AddressData>(initialData || {
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: 'US',
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const formatPostalCode = (value: string) => {
@@ -91,9 +101,9 @@ export function AddressForm({ data, onChange, onNext, onBack }: AddressFormProps
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
+  const handleSubmit = () => {
     if (validate()) {
-      onNext();
+      onSubmit(data);
     }
   };
 
@@ -108,7 +118,7 @@ export function AddressForm({ data, onChange, onNext, onBack }: AddressFormProps
         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
           <MapPin className="h-8 w-8 text-primary" />
         </div>
-        <h3 className="text-xl font-semibold">Residential Address</h3>
+        <h3 className="text-xl font-semibold text-foreground">Residential Address</h3>
         <p className="text-muted-foreground text-sm mt-1">
           Please enter your current residential address
         </p>
@@ -120,7 +130,7 @@ export function AddressForm({ data, onChange, onNext, onBack }: AddressFormProps
           id="address1"
           placeholder="123 Main Street"
           value={data.addressLine1}
-          onChange={(e) => onChange({ ...data, addressLine1: e.target.value })}
+          onChange={(e) => setData({ ...data, addressLine1: e.target.value })}
           className={errors.addressLine1 ? 'border-destructive' : ''}
         />
         {errors.addressLine1 && (
@@ -134,7 +144,7 @@ export function AddressForm({ data, onChange, onNext, onBack }: AddressFormProps
           id="address2"
           placeholder="Apt 4B"
           value={data.addressLine2}
-          onChange={(e) => onChange({ ...data, addressLine2: e.target.value })}
+          onChange={(e) => setData({ ...data, addressLine2: e.target.value })}
         />
       </div>
 
@@ -145,7 +155,7 @@ export function AddressForm({ data, onChange, onNext, onBack }: AddressFormProps
             id="city"
             placeholder="New York"
             value={data.city}
-            onChange={(e) => onChange({ ...data, city: e.target.value })}
+            onChange={(e) => setData({ ...data, city: e.target.value })}
             className={errors.city ? 'border-destructive' : ''}
           />
           {errors.city && (
@@ -157,7 +167,7 @@ export function AddressForm({ data, onChange, onNext, onBack }: AddressFormProps
           <Label htmlFor="state">State</Label>
           <Select 
             value={data.state} 
-            onValueChange={(value) => onChange({ ...data, state: value })}
+            onValueChange={(value) => setData({ ...data, state: value })}
           >
             <SelectTrigger className={errors.state ? 'border-destructive' : ''}>
               <SelectValue placeholder="Select state" />
@@ -182,7 +192,7 @@ export function AddressForm({ data, onChange, onNext, onBack }: AddressFormProps
           id="postal"
           placeholder="10001"
           value={data.postalCode}
-          onChange={(e) => onChange({ ...data, postalCode: formatPostalCode(e.target.value) })}
+          onChange={(e) => setData({ ...data, postalCode: formatPostalCode(e.target.value) })}
           className={`max-w-[150px] ${errors.postalCode ? 'border-destructive' : ''}`}
           maxLength={5}
         />
@@ -196,7 +206,7 @@ export function AddressForm({ data, onChange, onNext, onBack }: AddressFormProps
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <Button onClick={handleNext} className="flex-1">
+        <Button onClick={handleSubmit} className="flex-1">
           Continue
         </Button>
       </div>

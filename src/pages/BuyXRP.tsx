@@ -4,7 +4,9 @@ import { KYCGate } from '@/components/dashboard/KYCGate';
 import { useWallets } from '@/hooks/useWallets';
 import { useTransactions } from '@/hooks/useTransactions';
 import { usePrices } from '@/hooks/usePrices';
+import { useWalletStore } from '@/stores/walletStore';
 import { MoonPayModal } from '@/components/buy/MoonPayModal';
+import { WalletConnectButton } from '@/components/wallet/WalletConnectButton';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -16,7 +18,9 @@ import {
   TrendingUp,
   TrendingDown,
   Wallet,
-  ExternalLink
+  ExternalLink,
+  Link,
+  Unlink
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -32,10 +36,12 @@ export default function BuyXRP() {
   const { primaryWallet, wallets } = useWallets();
   const { createTransaction } = useTransactions();
   const { prices } = usePrices();
+  const walletStore = useWalletStore();
   const [amount, setAmount] = useState('100');
   const [selectedCurrency, setSelectedCurrency] = useState(fiatCurrencies[0]);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [showMoonPayModal, setShowMoonPayModal] = useState(false);
+  const [showWalletOptions, setShowWalletOptions] = useState(false);
 
   const xrpPrice = prices.xrp?.usd || 0.52;
   const xrpChange = prices.xrp?.usd_24h_change || 0;
@@ -43,8 +49,21 @@ export default function BuyXRP() {
   const fee = numAmount * 0.035;
   const xrpAmount = ((numAmount - fee) / xrpPrice).toFixed(2);
 
+  // Check for connected external wallets
+  const hasConnectedWallet = walletStore.evmAddress || walletStore.solanaAddress || walletStore.tronAddress || walletStore.btcAddress;
+  
+  // Get the receiving address (prefer connected wallet, then saved wallet)
+  const getReceivingAddress = () => {
+    if (walletStore.evmAddress) return walletStore.evmAddress;
+    if (walletStore.solanaAddress) return walletStore.solanaAddress;
+    if (walletStore.tronAddress) return walletStore.tronAddress;
+    if (walletStore.btcAddress) return walletStore.btcAddress;
+    return primaryWallet?.wallet_address || '';
+  };
+
+  const receivingAddress = getReceivingAddress();
+
   const handleMoonPayComplete = async (data: { email: string; amount: number; walletAddress: string }) => {
-    // Create transaction record
     const result = await createTransaction({
       transaction_type: 'buy',
       status: 'completed',
@@ -64,6 +83,29 @@ export default function BuyXRP() {
     }
   };
 
+  const formatAddress = (address: string) => {
+    if (!address) return '';
+    return `${address.slice(0, 8)}...${address.slice(-6)}`;
+  };
+
+  const getConnectedWalletInfo = () => {
+    if (walletStore.evmAddress) {
+      return { type: 'EVM', address: walletStore.evmAddress, icon: '⟠' };
+    }
+    if (walletStore.solanaAddress) {
+      return { type: 'Solana', address: walletStore.solanaAddress, icon: '◎' };
+    }
+    if (walletStore.tronAddress) {
+      return { type: 'TRON', address: walletStore.tronAddress, icon: '⚡' };
+    }
+    if (walletStore.btcAddress) {
+      return { type: 'Bitcoin', address: walletStore.btcAddress, icon: '₿' };
+    }
+    return null;
+  };
+
+  const connectedWalletInfo = getConnectedWalletInfo();
+
   return (
     <DashboardLayout>
       <div className="mb-8">
@@ -80,9 +122,115 @@ export default function BuyXRP() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Purchase Card */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Wallet Connection Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl border border-border p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-primary" />
+                  <span className="font-semibold text-foreground">Receiving Wallet</span>
+                </div>
+                {hasConnectedWallet && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => walletStore.disconnectAll()}
+                    className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                  >
+                    <Unlink className="w-4 h-4 mr-2" />
+                    Disconnect
+                  </Button>
+                )}
+              </div>
+
+              {hasConnectedWallet ? (
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
+                    {connectedWalletInfo?.icon}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground">{connectedWalletInfo?.type} Wallet</span>
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    </div>
+                    <div className="font-mono text-sm text-muted-foreground">
+                      {formatAddress(connectedWalletInfo?.address || '')}
+                    </div>
+                  </div>
+                  <div className="text-green-500 text-sm font-medium">Connected</div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Connect your wallet to receive XRP directly, or we'll send to your saved wallet.
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <WalletConnectButton
+                      walletType="metamask"
+                      variant="outline"
+                      size="lg"
+                      className="h-14"
+                    />
+                    <WalletConnectButton
+                      walletType="phantom"
+                      variant="outline"
+                      size="lg"
+                      className="h-14"
+                    />
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowWalletOptions(!showWalletOptions)}
+                    className="w-full text-muted-foreground"
+                  >
+                    {showWalletOptions ? 'Hide' : 'Show'} more wallet options
+                  </Button>
+
+                  <AnimatePresence>
+                    {showWalletOptions && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="grid grid-cols-2 gap-3 overflow-hidden"
+                      >
+                        <WalletConnectButton
+                          walletType="coinbase"
+                          variant="outline"
+                          size="lg"
+                          className="h-14"
+                        />
+                        <WalletConnectButton
+                          walletType="tronlink"
+                          variant="outline"
+                          size="lg"
+                          className="h-14"
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {wallets.length > 0 && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 text-sm">
+                      <Link className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">
+                        Or use saved wallet: <span className="font-mono text-foreground">{formatAddress(primaryWallet?.wallet_address || '')}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
               className="bg-card rounded-2xl border border-border p-6 space-y-6"
             >
               {/* Amount Input */}
@@ -190,14 +338,14 @@ export default function BuyXRP() {
                 </div>
               </div>
 
-              {/* Wallet Selection */}
-              {wallets.length > 0 && (
+              {/* Receiving Address Display */}
+              {receivingAddress && (
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30">
                   <Wallet className="w-5 h-5 text-primary" />
                   <div className="flex-1">
-                    <div className="text-sm text-muted-foreground">Receiving wallet</div>
+                    <div className="text-sm text-muted-foreground">Sending XRP to</div>
                     <div className="font-mono text-foreground text-sm">
-                      {primaryWallet?.wallet_address.slice(0, 12)}...{primaryWallet?.wallet_address.slice(-8)}
+                      {formatAddress(receivingAddress)}
                     </div>
                   </div>
                   <CheckCircle className="w-5 h-5 text-green-500" />
@@ -207,10 +355,10 @@ export default function BuyXRP() {
               {/* Buy Button */}
               <Button
                 onClick={() => setShowMoonPayModal(true)}
-                disabled={numAmount <= 0}
-                className="w-full h-14 text-lg bg-gradient-to-r from-[#7B3FE4] to-[#A855F7] hover:opacity-90 text-white"
+                disabled={numAmount <= 0 || !receivingAddress}
+                className="w-full h-14 text-lg bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(280,70%,50%)] hover:opacity-90 text-primary-foreground"
               >
-                Buy with MoonPay
+                {!receivingAddress ? 'Connect Wallet to Continue' : 'Buy with MoonPay'}
               </Button>
 
               {/* MoonPay Badge */}
@@ -228,7 +376,7 @@ export default function BuyXRP() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
+              transition={{ delay: 0.2 }}
               className="bg-card rounded-2xl border border-border p-6"
             >
               <div className="flex items-center gap-3 mb-4">
@@ -256,7 +404,7 @@ export default function BuyXRP() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+              transition={{ delay: 0.3 }}
               className="bg-card rounded-2xl border border-border p-6"
             >
               <h3 className="font-semibold text-foreground mb-4">Why buy with us?</h3>
@@ -294,7 +442,7 @@ export default function BuyXRP() {
         onClose={() => setShowMoonPayModal(false)}
         onComplete={handleMoonPayComplete}
         xrpPrice={xrpPrice}
-        defaultWalletAddress={primaryWallet?.wallet_address}
+        defaultWalletAddress={receivingAddress}
       />
     </DashboardLayout>
   );

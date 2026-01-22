@@ -27,8 +27,8 @@ interface Transaction {
   source_chain: string | null;
   source_token: string | null;
   source_amount: number | null;
-  destination_chain: string;
-  destination_token: string;
+  destination_chain: string | null;
+  destination_token: string | null;
   destination_amount: number | null;
   destination_address: string | null;
   tx_hash: string | null;
@@ -42,8 +42,7 @@ interface Transaction {
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
 }
 
 const typeConfig = {
@@ -61,7 +60,7 @@ const statusConfig: Record<string, { icon: typeof Clock; label: string; variant:
   cancelled: { icon: AlertCircle, label: 'Cancelled', variant: 'outline' },
 };
 
-export function TransactionDetailModal({ transaction, open, onOpenChange }: TransactionDetailModalProps) {
+export function TransactionDetailModal({ transaction, onClose }: TransactionDetailModalProps) {
   if (!transaction) return null;
 
   const typeInfo = typeConfig[transaction.transaction_type];
@@ -80,7 +79,7 @@ export function TransactionDetailModal({ transaction, open, onOpenChange }: Tran
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={!!transaction} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">

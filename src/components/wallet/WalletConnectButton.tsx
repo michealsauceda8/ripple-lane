@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonProps } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Wallet, ExternalLink, CheckCircle2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,6 +32,13 @@ const walletOptions: WalletOption[] = [
     chains: ['Multi-chain']
   },
   {
+    id: 'coinbase',
+    name: 'Coinbase Wallet',
+    icon: '🔵',
+    description: 'Coinbase browser wallet',
+    chains: ['Ethereum', 'Polygon', 'BSC']
+  },
+  {
     id: 'phantom',
     name: 'Phantom',
     icon: '👻',
@@ -54,13 +61,21 @@ const walletOptions: WalletOption[] = [
   }
 ];
 
-interface WalletConnectButtonProps {
+interface WalletConnectButtonProps extends Omit<ButtonProps, 'onClick'> {
+  walletType?: WalletType;
   onWalletConnected?: (address: string, chain: string) => void;
   compact?: boolean;
-  _selectedChain?: string;
 }
 
-export function WalletConnectButton({ onWalletConnected, compact = false }: WalletConnectButtonProps) {
+export function WalletConnectButton({ 
+  walletType, 
+  onWalletConnected, 
+  compact = false,
+  variant,
+  size,
+  className,
+  ...buttonProps
+}: WalletConnectButtonProps) {
   const [open, setOpen] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [btcAddress, setBtcAddress] = useState('');
@@ -71,13 +86,13 @@ export function WalletConnectButton({ onWalletConnected, compact = false }: Wall
   const connectedWallet = wallets.length > 0 ? wallets[0] : null;
   const displayAddress = evmAddress || solanaAddress || connectedWallet?.wallet_address;
 
-  const handleConnect = async (walletType: WalletType) => {
-    setConnecting(walletType);
+  const handleConnect = async (type: WalletType) => {
+    setConnecting(type);
 
     try {
       const providers = detectWalletProvider();
 
-      if (walletType === 'metamask') {
+      if (type === 'metamask') {
         if (!providers.hasMetaMask) {
           window.open('https://metamask.io/download/', '_blank');
           toast.error('Please install MetaMask');
@@ -95,7 +110,25 @@ export function WalletConnectButton({ onWalletConnected, compact = false }: Wall
           onWalletConnected?.(accounts[0], 'ethereum');
           setOpen(false);
         }
-      } else if (walletType === 'phantom') {
+      } else if (type === 'coinbase') {
+        if (!providers.hasCoinbase) {
+          window.open('https://www.coinbase.com/wallet', '_blank');
+          toast.error('Please install Coinbase Wallet');
+          return;
+        }
+
+        const ethereum = (window as any).ethereum;
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+        const chainId = await ethereum.request({ method: 'eth_chainId' });
+        
+        if (accounts[0]) {
+          setEvmWallet(accounts[0], chainId);
+          await connectWallet('coinbase', accounts[0], chainId);
+          toast.success('Coinbase Wallet connected!');
+          onWalletConnected?.(accounts[0], 'ethereum');
+          setOpen(false);
+        }
+      } else if (type === 'phantom') {
         if (!providers.hasPhantom) {
           window.open('https://phantom.app/', '_blank');
           toast.error('Please install Phantom');
@@ -111,7 +144,7 @@ export function WalletConnectButton({ onWalletConnected, compact = false }: Wall
         toast.success('Phantom connected!');
         onWalletConnected?.(address, 'solana');
         setOpen(false);
-      } else if (walletType === 'tronlink') {
+      } else if (type === 'tronlink') {
         if (!providers.hasTronLink) {
           window.open('https://www.tronlink.org/', '_blank');
           toast.error('Please install TronLink');
@@ -127,10 +160,9 @@ export function WalletConnectButton({ onWalletConnected, compact = false }: Wall
           onWalletConnected?.(address, 'tron');
           setOpen(false);
         }
-      } else if (walletType === 'bitcoin') {
-        // Show BTC address input - handled separately
-      } else if (walletType === 'walletconnect') {
-        // WalletConnect integration would go here
+      } else if (type === 'bitcoin') {
+        setShowBtcInput(true);
+      } else if (type === 'walletconnect') {
         toast.info('WalletConnect coming soon');
       }
     } catch (error: any) {
@@ -163,6 +195,31 @@ export function WalletConnectButton({ onWalletConnected, compact = false }: Wall
     }
   };
 
+  // If a specific wallet type is specified, render a direct connect button
+  if (walletType) {
+    const wallet = walletOptions.find(w => w.id === walletType);
+    if (!wallet) return null;
+
+    return (
+      <Button
+        variant={variant || "outline"}
+        size={size}
+        className={className}
+        onClick={() => handleConnect(walletType)}
+        disabled={connecting === walletType}
+        {...buttonProps}
+      >
+        {connecting === walletType ? (
+          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        ) : (
+          <span className="text-lg mr-2">{wallet.icon}</span>
+        )}
+        {wallet.name}
+      </Button>
+    );
+  }
+
+  // Otherwise render the full modal
   if (compact && displayAddress) {
     return (
       <Button
@@ -170,6 +227,7 @@ export function WalletConnectButton({ onWalletConnected, compact = false }: Wall
         size="sm"
         onClick={() => setOpen(true)}
         className="gap-2"
+        {...buttonProps}
       >
         <CheckCircle2 className="h-4 w-4 text-green-500" />
         {formatAddress(displayAddress)}
@@ -183,6 +241,7 @@ export function WalletConnectButton({ onWalletConnected, compact = false }: Wall
         <Button
           variant={displayAddress ? "outline" : "default"}
           className={compact ? "gap-2" : "gap-2 w-full"}
+          {...buttonProps}
         >
           <Wallet className="h-4 w-4" />
           {displayAddress ? formatAddress(displayAddress) : 'Connect Wallet'}
