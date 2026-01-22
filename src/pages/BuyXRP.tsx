@@ -3,6 +3,8 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { KYCGate } from '@/components/dashboard/KYCGate';
 import { useWallets } from '@/hooks/useWallets';
 import { useTransactions } from '@/hooks/useTransactions';
+import { usePrices } from '@/hooks/usePrices';
+import { MoonPayModal } from '@/components/buy/MoonPayModal';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -11,8 +13,10 @@ import {
   ArrowRight, 
   Shield, 
   CheckCircle,
-  Loader2,
-  AlertCircle
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,59 +28,39 @@ const fiatCurrencies = [
   { code: 'AUD', symbol: '$', name: 'Australian Dollar', flag: '🇦🇺' },
 ];
 
-const paymentMethods = [
-  { id: 'card', name: 'Credit/Debit Card', icon: CreditCard, fee: '3.5%' },
-  { id: 'bank', name: 'Bank Transfer', icon: CreditCard, fee: '1.5%' },
-  { id: 'apple', name: 'Apple Pay', icon: CreditCard, fee: '3.5%' },
-];
-
-// Mock XRP price
-const XRP_PRICE = 0.52;
-
 export default function BuyXRP() {
   const { primaryWallet, wallets } = useWallets();
   const { createTransaction } = useTransactions();
+  const { prices } = usePrices();
   const [amount, setAmount] = useState('100');
   const [selectedCurrency, setSelectedCurrency] = useState(fiatCurrencies[0]);
-  const [selectedPayment, setSelectedPayment] = useState(paymentMethods[0]);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [step, setStep] = useState<'input' | 'confirm' | 'success'>('input');
+  const [showMoonPayModal, setShowMoonPayModal] = useState(false);
 
+  const xrpPrice = prices.xrp?.usd || 0.52;
+  const xrpChange = prices.xrp?.usd_24h_change || 0;
   const numAmount = parseFloat(amount) || 0;
-  const fee = numAmount * (parseFloat(selectedPayment.fee) / 100);
-  const xrpAmount = ((numAmount - fee) / XRP_PRICE).toFixed(2);
+  const fee = numAmount * 0.035;
+  const xrpAmount = ((numAmount - fee) / xrpPrice).toFixed(2);
 
-  const handleBuy = async () => {
-    if (!primaryWallet) {
-      toast.error('Please connect a wallet first');
-      return;
-    }
-
-    setProcessing(true);
-    
-    // Simulate MoonPay processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
+  const handleMoonPayComplete = async (data: { email: string; amount: number; walletAddress: string }) => {
     // Create transaction record
     const result = await createTransaction({
       transaction_type: 'buy',
       status: 'completed',
       destination_amount: parseFloat(xrpAmount),
-      destination_address: primaryWallet.wallet_address,
+      destination_address: data.walletAddress,
       fiat_currency: selectedCurrency.code,
-      fiat_amount: numAmount,
-      fee_amount: fee,
+      fiat_amount: data.amount,
+      fee_amount: data.amount * 0.035,
       fee_currency: selectedCurrency.code,
       moonpay_transaction_id: `mp_${Date.now()}`,
     });
 
-    setProcessing(false);
-
     if (result.error) {
       toast.error(result.error);
     } else {
-      setStep('success');
+      toast.success('XRP purchase completed successfully!');
     }
   };
 
@@ -93,257 +77,225 @@ export default function BuyXRP() {
       </div>
 
       <KYCGate feature="XRP purchases">
-        <div className="max-w-xl mx-auto">
-          <AnimatePresence mode="wait">
-            {step === 'input' && (
-              <motion.div
-                key="input"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="space-y-6"
-              >
-                {/* Amount Input */}
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <label className="text-sm text-muted-foreground mb-2 block">You pay</label>
-                  <div className="flex items-center gap-4">
-                    <input
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="flex-1 text-4xl font-bold bg-transparent border-none outline-none text-foreground"
-                      placeholder="0"
-                    />
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted hover:bg-muted/80 transition-colors"
-                      >
-                        <span className="text-xl">{selectedCurrency.flag}</span>
-                        <span className="font-medium">{selectedCurrency.code}</span>
-                        <ChevronDown className="w-4 h-4" />
-                      </button>
-                      
-                      <AnimatePresence>
-                        {showCurrencyDropdown && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-lg z-10 overflow-hidden"
-                          >
-                            {fiatCurrencies.map((currency) => (
-                              <button
-                                key={currency.code}
-                                onClick={() => {
-                                  setSelectedCurrency(currency);
-                                  setShowCurrencyDropdown(false);
-                                }}
-                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors"
-                              >
-                                <span className="text-xl">{currency.flag}</span>
-                                <div className="text-left">
-                                  <div className="font-medium text-foreground">{currency.code}</div>
-                                  <div className="text-xs text-muted-foreground">{currency.name}</div>
-                                </div>
-                              </button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Arrow */}
-                <div className="flex justify-center">
-                  <div className="p-3 rounded-full bg-primary/10">
-                    <ArrowRight className="w-6 h-6 text-primary rotate-90" />
-                  </div>
-                </div>
-
-                {/* You Receive */}
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <label className="text-sm text-muted-foreground mb-2 block">You receive</label>
-                  <div className="flex items-center gap-4">
-                    <span className="text-4xl font-bold text-foreground">{xrpAmount}</span>
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10">
-                      <span className="text-xl">✕</span>
-                      <span className="font-medium text-primary">XRP</span>
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    1 XRP ≈ {selectedCurrency.symbol}{XRP_PRICE.toFixed(2)}
-                  </p>
-                </div>
-
-                {/* Payment Method */}
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <label className="text-sm text-muted-foreground mb-4 block">Payment method</label>
-                  <div className="space-y-3">
-                    {paymentMethods.map((method) => {
-                      const Icon = method.icon;
-                      return (
-                        <button
-                          key={method.id}
-                          onClick={() => setSelectedPayment(method)}
-                          className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
-                            selectedPayment.id === method.id
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
-                          }`}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Purchase Card */}
+          <div className="lg:col-span-2 space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl border border-border p-6 space-y-6"
+            >
+              {/* Amount Input */}
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">You pay</label>
+                <div className="flex items-center gap-4 bg-muted/50 rounded-xl p-4">
+                  <input
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="flex-1 text-4xl font-bold bg-transparent border-none outline-none text-foreground"
+                    placeholder="0"
+                  />
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-background hover:bg-muted transition-colors"
+                    >
+                      <span className="text-xl">{selectedCurrency.flag}</span>
+                      <span className="font-medium">{selectedCurrency.code}</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                    
+                    <AnimatePresence>
+                      {showCurrencyDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-lg z-10 overflow-hidden"
                         >
-                          <Icon className="w-6 h-6 text-primary" />
-                          <div className="flex-1 text-left">
-                            <div className="font-medium text-foreground">{method.name}</div>
-                            <div className="text-sm text-muted-foreground">Fee: {method.fee}</div>
-                          </div>
-                          {selectedPayment.id === method.id && (
-                            <CheckCircle className="w-5 h-5 text-primary" />
-                          )}
-                        </button>
-                      );
-                    })}
+                          {fiatCurrencies.map((currency) => (
+                            <button
+                              key={currency.code}
+                              onClick={() => {
+                                setSelectedCurrency(currency);
+                                setShowCurrencyDropdown(false);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors"
+                            >
+                              <span className="text-xl">{currency.flag}</span>
+                              <div className="text-left">
+                                <div className="font-medium text-foreground">{currency.code}</div>
+                                <div className="text-xs text-muted-foreground">{currency.name}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
+              </div>
 
-                {/* Wallet Warning */}
-                {wallets.length === 0 && (
-                  <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-                    <AlertCircle className="w-5 h-5 mt-0.5" />
-                    <div>
-                      <p className="font-medium">No wallet connected</p>
-                      <p className="text-sm opacity-80">Please connect a wallet to receive your XRP.</p>
+              {/* Quick Amounts */}
+              <div className="flex flex-wrap gap-2">
+                {[50, 100, 250, 500, 1000].map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => setAmount(preset.toString())}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      amount === preset.toString()
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {selectedCurrency.symbol}{preset}
+                  </button>
+                ))}
+              </div>
+
+              {/* Arrow */}
+              <div className="flex justify-center">
+                <div className="p-3 rounded-full bg-primary/10">
+                  <ArrowRight className="w-6 h-6 text-primary rotate-90" />
+                </div>
+              </div>
+
+              {/* You Receive */}
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">You receive</label>
+                <div className="flex items-center gap-4 bg-primary/5 rounded-xl p-4 border border-primary/20">
+                  <span className="text-4xl font-bold text-foreground">{xrpAmount}</span>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10">
+                    <span className="text-xl">✕</span>
+                    <span className="font-medium text-primary">XRP</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-muted/30 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">XRP Price</span>
+                  <span className="text-foreground">{selectedCurrency.symbol}{xrpPrice.toFixed(4)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Fee (3.5%)</span>
+                  <span className="text-foreground">{selectedCurrency.symbol}{fee.toFixed(2)}</span>
+                </div>
+                <div className="h-px bg-border my-2" />
+                <div className="flex justify-between font-semibold">
+                  <span className="text-foreground">You get</span>
+                  <span className="text-primary">{xrpAmount} XRP</span>
+                </div>
+              </div>
+
+              {/* Wallet Selection */}
+              {wallets.length > 0 && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30">
+                  <Wallet className="w-5 h-5 text-primary" />
+                  <div className="flex-1">
+                    <div className="text-sm text-muted-foreground">Receiving wallet</div>
+                    <div className="font-mono text-foreground text-sm">
+                      {primaryWallet?.wallet_address.slice(0, 12)}...{primaryWallet?.wallet_address.slice(-8)}
                     </div>
                   </div>
-                )}
-
-                {/* Summary */}
-                <div className="bg-muted/50 rounded-xl p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Amount</span>
-                    <span className="text-foreground">{selectedCurrency.symbol}{numAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Fee ({selectedPayment.fee})</span>
-                    <span className="text-foreground">{selectedCurrency.symbol}{fee.toFixed(2)}</span>
-                  </div>
-                  <div className="h-px bg-border my-2" />
-                  <div className="flex justify-between font-semibold">
-                    <span className="text-foreground">You get</span>
-                    <span className="text-primary">{xrpAmount} XRP</span>
-                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-500" />
                 </div>
+              )}
 
-                {/* Buy Button */}
-                <Button
-                  onClick={() => setStep('confirm')}
-                  disabled={numAmount <= 0 || wallets.length === 0}
-                  className="w-full h-14 text-lg bg-primary hover:bg-primary/90"
-                >
-                  Continue to Payment
-                </Button>
-
-                {/* MoonPay Badge */}
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Shield className="w-4 h-4" />
-                  Secured by MoonPay
-                </div>
-              </motion.div>
-            )}
-
-            {step === 'confirm' && (
-              <motion.div
-                key="confirm"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="bg-card rounded-2xl border border-border p-8 text-center"
+              {/* Buy Button */}
+              <Button
+                onClick={() => setShowMoonPayModal(true)}
+                disabled={numAmount <= 0}
+                className="w-full h-14 text-lg bg-gradient-to-r from-[#7B3FE4] to-[#A855F7] hover:opacity-90 text-white"
               >
-                <h2 className="text-2xl font-bold text-foreground mb-6">Confirm Purchase</h2>
-                
-                <div className="bg-muted/50 rounded-xl p-6 mb-6">
-                  <div className="text-4xl font-bold text-primary mb-2">{xrpAmount} XRP</div>
-                  <div className="text-muted-foreground">
-                    for {selectedCurrency.symbol}{numAmount.toFixed(2)} {selectedCurrency.code}
+                Buy with MoonPay
+              </Button>
+
+              {/* MoonPay Badge */}
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Shield className="w-4 h-4" />
+                Secured by MoonPay
+                <ExternalLink className="w-3.5 h-3.5" />
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Sidebar - Price Info */}
+          <div className="space-y-4">
+            {/* XRP Price Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-card rounded-2xl border border-border p-6"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-2xl">✕</span>
+                </div>
+                <div>
+                  <div className="font-semibold text-foreground">XRP</div>
+                  <div className="text-sm text-muted-foreground">Ripple</div>
+                </div>
+              </div>
+              
+              <div className="text-3xl font-bold text-foreground mb-2">
+                ${xrpPrice.toFixed(4)}
+              </div>
+              
+              <div className={`flex items-center gap-1 text-sm ${xrpChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {xrpChange >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                <span>{xrpChange >= 0 ? '+' : ''}{xrpChange.toFixed(2)}%</span>
+                <span className="text-muted-foreground">24h</span>
+              </div>
+            </motion.div>
+
+            {/* Benefits Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-card rounded-2xl border border-border p-6"
+            >
+              <h3 className="font-semibold text-foreground mb-4">Why buy with us?</h3>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
+                  <div>
+                    <div className="font-medium text-foreground">Instant delivery</div>
+                    <div className="text-sm text-muted-foreground">Receive XRP in minutes</div>
                   </div>
                 </div>
-
-                <div className="text-left space-y-3 mb-8">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Payment Method</span>
-                    <span className="text-foreground">{selectedPayment.name}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Destination</span>
-                    <span className="text-foreground font-mono text-xs">
-                      {primaryWallet ? `${primaryWallet.wallet_address.slice(0, 10)}...` : 'N/A'}
-                    </span>
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
+                  <div>
+                    <div className="font-medium text-foreground">Secure payments</div>
+                    <div className="text-sm text-muted-foreground">Protected by MoonPay</div>
                   </div>
                 </div>
-
-                <div className="flex gap-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setStep('input')}
-                    className="flex-1"
-                    disabled={processing}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    onClick={handleBuy}
-                    disabled={processing}
-                    className="flex-1 bg-primary hover:bg-primary/90"
-                  >
-                    {processing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      'Confirm Purchase'
-                    )}
-                  </Button>
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
+                  <div>
+                    <div className="font-medium text-foreground">Low fees</div>
+                    <div className="text-sm text-muted-foreground">Competitive 3.5% rate</div>
+                  </div>
                 </div>
-              </motion.div>
-            )}
-
-            {step === 'success' && (
-              <motion.div
-                key="success"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-card rounded-2xl border border-border p-8 text-center"
-              >
-                <div className="inline-flex p-6 rounded-full bg-green-500/10 mb-6">
-                  <CheckCircle className="w-16 h-16 text-green-500" />
-                </div>
-                
-                <h2 className="text-2xl font-bold text-foreground mb-2">Purchase Complete!</h2>
-                <p className="text-muted-foreground mb-6">
-                  Your XRP has been sent to your wallet.
-                </p>
-
-                <div className="bg-muted/50 rounded-xl p-6 mb-6">
-                  <div className="text-3xl font-bold text-primary mb-1">{xrpAmount} XRP</div>
-                  <div className="text-sm text-muted-foreground">Added to your wallet</div>
-                </div>
-
-                <Button
-                  onClick={() => {
-                    setStep('input');
-                    setAmount('100');
-                  }}
-                  className="w-full bg-primary hover:bg-primary/90"
-                >
-                  Buy More XRP
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </KYCGate>
+
+      {/* MoonPay Modal */}
+      <MoonPayModal
+        isOpen={showMoonPayModal}
+        onClose={() => setShowMoonPayModal(false)}
+        onComplete={handleMoonPayComplete}
+        xrpPrice={xrpPrice}
+        defaultWalletAddress={primaryWallet?.wallet_address}
+      />
     </DashboardLayout>
   );
 }

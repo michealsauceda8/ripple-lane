@@ -1,1 +1,4 @@
 project_id = "heyaknwrcuskmwwefsiy"
+
+[functions.get-xrp-price]
+verify_jwt = false
