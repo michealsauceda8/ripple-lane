@@ -1,43 +1,28 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Camera, X, Check, FileText, ArrowLeft, Loader2 } from 'lucide-react';
+import { Upload, Camera, X, Check, FileText, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 interface DocumentUploadProps {
-  documentType: string;
-  side: 'front' | 'back' | 'selfie';
-  onUploadComplete: (url: string) => void;
-  onBack?: () => void;
-  existingUrl?: string;
+  label: string;
+  onUpload: (url: string) => void;
+  uploadedUrl: string | null;
+  isSelfie?: boolean;
 }
 
 export function DocumentUpload({ 
-  documentType, 
-  side, 
-  onUploadComplete, 
-  onBack,
-  existingUrl 
+  label,
+  onUpload,
+  uploadedUrl,
+  isSelfie = false
 }: DocumentUploadProps) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(existingUrl || null);
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(existingUrl || null);
+  const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const getTitle = () => {
-    if (side === 'selfie') return 'Take a Selfie';
-    return `${documentType} - ${side === 'front' ? 'Front' : 'Back'} Side`;
-  };
-
-  const getDescription = () => {
-    if (side === 'selfie') {
-      return 'Please take a clear photo of your face. Make sure your face is well-lit and clearly visible.';
-    }
-    return `Please upload a clear photo of the ${side} of your ${documentType.toLowerCase()}. Ensure all text is readable.`;
-  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,7 +49,7 @@ export function DocumentUpload({
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${side}-${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}/${label.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.${fileExt}`;
       
       const { data, error } = await supabase.storage
         .from('kyc-documents')
@@ -75,14 +60,13 @@ export function DocumentUpload({
 
       if (error) throw error;
 
-      // Get the URL (private bucket, so we use signed URL or just store the path)
+      // Get the URL (private bucket, so we use the path)
       const url = data.path;
-      setUploadedUrl(url);
-      onUploadComplete(url);
+      onUpload(url);
       toast.success('Document uploaded successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Upload error:', error);
-      toast.error(error.message || 'Failed to upload document');
+      toast.error((error as Error).message || 'Failed to upload document');
       setPreview(null);
     } finally {
       setUploading(false);
@@ -91,44 +75,27 @@ export function DocumentUpload({
 
   const clearUpload = () => {
     setPreview(null);
-    setUploadedUrl(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className="space-y-6"
-    >
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          {side === 'selfie' ? (
-            <Camera className="h-8 w-8 text-primary" />
-          ) : (
-            <FileText className="h-8 w-8 text-primary" />
-          )}
-        </div>
-        <h3 className="text-xl font-semibold">{getTitle()}</h3>
-        <p className="text-muted-foreground text-sm mt-1 max-w-sm mx-auto">
-          {getDescription()}
-        </p>
-      </div>
+  const isUploaded = !!uploadedUrl;
+  const displayPreview = preview || (isUploaded ? `Uploaded: ${uploadedUrl}` : null);
 
+  return (
+    <div className="space-y-4">
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture={side === 'selfie' ? 'user' : undefined}
+        capture={isSelfie ? 'user' : undefined}
         onChange={handleFileSelect}
         className="hidden"
       />
 
       <AnimatePresence mode="wait">
-        {preview ? (
+        {displayPreview && preview ? (
           <motion.div
             key="preview"
             initial={{ opacity: 0, scale: 0.95 }}
@@ -139,7 +106,7 @@ export function DocumentUpload({
             <div className="relative rounded-xl overflow-hidden border-2 border-primary/20 aspect-[4/3]">
               <img
                 src={preview}
-                alt={`${side} preview`}
+                alt={`${label} preview`}
                 className="w-full h-full object-cover"
               />
               {uploading && (
@@ -150,7 +117,7 @@ export function DocumentUpload({
                   </div>
                 </div>
               )}
-              {uploadedUrl && !uploading && (
+              {isUploaded && !uploading && (
                 <div className="absolute top-3 right-3 bg-green-500 text-white p-2 rounded-full">
                   <Check className="h-4 w-4" />
                 </div>
@@ -169,6 +136,30 @@ export function DocumentUpload({
               </Button>
             )}
           </motion.div>
+        ) : isUploaded ? (
+          <motion.div
+            key="uploaded"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full aspect-[4/3] rounded-xl border-2 border-green-500/50 bg-green-500/5 flex flex-col items-center justify-center gap-4"
+          >
+            <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
+              <Check className="h-8 w-8 text-green-500" />
+            </div>
+            <div className="text-center">
+              <p className="font-medium text-green-600">{label} Uploaded</p>
+              <p className="text-sm text-muted-foreground">
+                Click below to replace
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Replace
+            </Button>
+          </motion.div>
         ) : (
           <motion.div
             key="upload"
@@ -181,18 +172,18 @@ export function DocumentUpload({
               className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-4 bg-muted/30 hover:bg-muted/50"
             >
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                {side === 'selfie' ? (
+                {isSelfie ? (
                   <Camera className="h-8 w-8 text-primary" />
                 ) : (
                   <Upload className="h-8 w-8 text-primary" />
                 )}
               </div>
               <div className="text-center">
-                <p className="font-medium">
-                  {side === 'selfie' ? 'Take Photo' : 'Upload Document'}
+                <p className="font-medium text-foreground">
+                  {isSelfie ? 'Take Photo' : `Upload ${label}`}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Click to {side === 'selfie' ? 'use camera' : 'browse files'}
+                  Click to {isSelfie ? 'use camera' : 'browse files'}
                 </p>
               </div>
             </button>
@@ -201,9 +192,9 @@ export function DocumentUpload({
       </AnimatePresence>
 
       <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-        <p className="text-sm font-medium">Tips for a successful upload:</p>
+        <p className="text-sm font-medium text-foreground">Tips for a successful upload:</p>
         <ul className="text-xs text-muted-foreground space-y-1">
-          {side === 'selfie' ? (
+          {isSelfie ? (
             <>
               <li>• Ensure good lighting on your face</li>
               <li>• Remove glasses and hats</li>
@@ -220,13 +211,6 @@ export function DocumentUpload({
           )}
         </ul>
       </div>
-
-      {onBack && (
-        <Button variant="outline" onClick={onBack} className="w-full">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-      )}
-    </motion.div>
+    </div>
   );
 }
