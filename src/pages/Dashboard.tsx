@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Wallet, ArrowRightLeft, CreditCard, TrendingUp } from "lucide-react";
 
@@ -35,12 +36,12 @@ const Dashboard = () => {
         <div className="glass-card p-6">
           <h2 className="font-display text-xl font-semibold mb-4">Quick Actions</h2>
           <div className="grid sm:grid-cols-2 gap-4">
-            <button className="btn-xrp-primary py-4 flex items-center justify-center gap-2">
+            <Link to="/dashboard/buy" className="btn-xrp-primary py-4 flex items-center justify-center gap-2">
               <CreditCard className="w-5 h-5" /> Buy XRP
-            </button>
-            <button className="btn-xrp-secondary py-4 flex items-center justify-center gap-2">
+            </Link>
+            <Link to="/dashboard/swap" className="btn-xrp-secondary py-4 flex items-center justify-center gap-2">
               <ArrowRightLeft className="w-5 h-5" /> Swap to XRP
-            </button>
+            </Link>
           </div>
         </div>
       </div>

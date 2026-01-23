@@ -1,11 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    // Check initial auth state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const navLinks = [
     { name: "Features", href: "#features" },
@@ -44,17 +60,28 @@ const Header = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <Link to="/login">
-              <Button variant="ghost" className="text-white hover:text-primary hover:bg-white/5">
-                Sign In
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button className="btn-xrp-primary">
-                Get Started
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </Link>
+            {isLoggedIn ? (
+              <Link to="/dashboard">
+                <Button className="btn-xrp-primary">
+                  Dashboard
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button variant="ghost" className="text-white hover:text-primary hover:bg-white/5">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button className="btn-xrp-primary">
+                    Get Started
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -87,16 +114,26 @@ const Header = () => {
                   </a>
                 ))}
                 <div className="border-t border-white/10 pt-4 mt-2 flex flex-col gap-3">
-                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="ghost" className="w-full text-white hover:text-primary hover:bg-white/5">
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
-                    <Button className="w-full btn-xrp-primary">
-                      Get Started
-                    </Button>
-                  </Link>
+                  {isLoggedIn ? (
+                    <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                      <Button className="w-full btn-xrp-primary">
+                        Dashboard
+                      </Button>
+                    </Link>
+                  ) : (
+                    <>
+                      <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                        <Button variant="ghost" className="w-full text-white hover:text-primary hover:bg-white/5">
+                          Sign In
+                        </Button>
+                      </Link>
+                      <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
+                        <Button className="w-full btn-xrp-primary">
+                          Get Started
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
               </nav>
             </motion.div>

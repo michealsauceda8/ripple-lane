@@ -19,8 +19,7 @@ import {
   AlertTriangle,
   Info,
   RefreshCw,
-  Wallet,
-  Edit3
+  Wallet
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -59,7 +58,6 @@ const defaultTokens: Record<string, { symbol: string; name: string; icon: string
 };
 
 export default function Swap() {
-  const { primaryWallet } = useWallets();
   const { createTransaction } = useTransactions();
   const walletStore = useWalletStore();
   const { allTokens, totalValue, loading: balancesLoading, refetch: refetchBalances } = useWalletBalances();
@@ -75,7 +73,6 @@ export default function Swap() {
   const [showSettings, setShowSettings] = useState(false);
   const [step, setStep] = useState<'input' | 'confirm' | 'processing' | 'success'>('input');
   const [customReceiveAddress, setCustomReceiveAddress] = useState('');
-  const [useCustomAddress, setUseCustomAddress] = useState(false);
 
   const xrpPrice = prices.xrp?.usd || 0.52;
   
@@ -116,14 +113,10 @@ export default function Swap() {
     setShowWalletTokens(false);
   };
 
-  // Determine receiving address
+  // Determine receiving address - for XRP, user must input manually
   const getReceivingAddress = () => {
-    if (useCustomAddress && customReceiveAddress) return customReceiveAddress;
-    if (walletStore.evmAddress) return walletStore.evmAddress;
-    if (walletStore.solanaAddress) return walletStore.solanaAddress;
-    if (walletStore.tronAddress) return walletStore.tronAddress;
-    if (walletStore.btcAddress) return walletStore.btcAddress;
-    return primaryWallet?.wallet_address || '';
+    if (customReceiveAddress) return customReceiveAddress;
+    return '';
   };
 
   const receivingAddress = getReceivingAddress();
@@ -131,7 +124,7 @@ export default function Swap() {
 
   const handleSwap = async () => {
     if (!receivingAddress) {
-      toast.error('Please enter or connect a receiving wallet');
+      toast.error('Please enter your XRP receiving wallet address');
       return;
     }
 
@@ -165,20 +158,20 @@ export default function Swap() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8">
+      <div className="mb-6 md:mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <ArrowDownUp className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold text-foreground">Swap to XRP</h1>
+          <ArrowDownUp className="w-6 h-6 md:w-8 md:h-8 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Swap to XRP</h1>
         </div>
-        <p className="text-muted-foreground">
+        <p className="text-sm md:text-base text-muted-foreground">
           Convert any supported token to XRP instantly.
         </p>
       </div>
 
       <KYCGate feature="token swaps">
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
           {/* Main Swap Card */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 order-2 lg:order-1">
             <AnimatePresence mode="wait">
               {(step === 'input' || step === 'confirm') && (
                 <motion.div
@@ -189,7 +182,7 @@ export default function Swap() {
                   className="space-y-4"
                 >
                   {/* Settings Button */}
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-wrap justify-between items-center gap-2">
                     <div className="flex items-center gap-2">
                       {hasConnectedWallet && (
                         <Button
@@ -197,10 +190,10 @@ export default function Swap() {
                           size="sm"
                           onClick={() => refetchBalances()}
                           disabled={balancesLoading}
-                          className="text-muted-foreground"
+                          className="text-muted-foreground text-xs md:text-sm"
                         >
-                          <RefreshCw className={`w-4 h-4 mr-2 ${balancesLoading ? 'animate-spin' : ''}`} />
-                          Refresh Balances
+                          <RefreshCw className={`w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 ${balancesLoading ? 'animate-spin' : ''}`} />
+                          Refresh
                         </Button>
                       )}
                     </div>
@@ -208,9 +201,9 @@ export default function Swap() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setShowSettings(!showSettings)}
-                      className="text-muted-foreground"
+                      className="text-muted-foreground text-xs md:text-sm"
                     >
-                      <Settings className="w-4 h-4 mr-2" />
+                      <Settings className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                       Settings
                     </Button>
                   </div>
@@ -225,12 +218,12 @@ export default function Swap() {
                         className="bg-card rounded-xl border border-border p-4 overflow-hidden"
                       >
                         <label className="text-sm text-muted-foreground mb-2 block">Slippage Tolerance</label>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           {['0.1', '0.5', '1.0'].map((val) => (
                             <button
                               key={val}
                               onClick={() => setSlippage(val)}
-                              className={`px-4 py-2 rounded-lg transition-all ${
+                              className={`px-3 md:px-4 py-2 rounded-lg transition-all text-sm ${
                                 slippage === val
                                   ? 'bg-primary text-primary-foreground'
                                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -243,7 +236,7 @@ export default function Swap() {
                             type="number"
                             value={slippage}
                             onChange={(e) => setSlippage(e.target.value)}
-                            className="w-20 px-3 py-2 rounded-lg bg-muted text-foreground text-center"
+                            className="w-16 md:w-20 px-3 py-2 rounded-lg bg-muted text-foreground text-center text-sm"
                             placeholder="Custom"
                           />
                         </div>
@@ -255,9 +248,9 @@ export default function Swap() {
                   {walletTokens.length > 0 && (
                     <div className="bg-card rounded-xl border border-border p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
                           <Wallet className="w-4 h-4" />
-                          Your tokens (${totalValue.toFixed(2)} total)
+                          <span className="hidden sm:inline">Your tokens</span> (${totalValue.toFixed(2)})
                         </div>
                         <button
                           onClick={() => setShowWalletTokens(!showWalletTokens)}
@@ -272,15 +265,14 @@ export default function Swap() {
                           <button
                             key={`${token.symbol}-${token.chain}-${idx}`}
                             onClick={() => handleSelectWalletToken(token)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+                            className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-lg transition-all text-xs md:text-sm ${
                               sourceToken.symbol === token.symbol && sourceChain.name === token.chain
                                 ? 'bg-primary text-primary-foreground'
                                 : 'bg-muted hover:bg-muted/80'
                             }`}
                           >
                             <span>{token.icon}</span>
-                            <span className="font-medium">{token.balance} {token.symbol}</span>
-                            <span className="text-xs opacity-60">{token.chain}</span>
+                            <span className="font-medium">{parseFloat(token.balance).toFixed(2)} {token.symbol}</span>
                           </button>
                         ))}
                       </div>
@@ -288,24 +280,24 @@ export default function Swap() {
                   )}
 
                   {/* From Section */}
-                  <div className="bg-card rounded-2xl border border-border p-6">
+                  <div className="bg-card rounded-2xl border border-border p-4 md:p-6">
                     <div className="flex justify-between mb-3">
-                      <label className="text-sm text-muted-foreground">From</label>
-                      <span className="text-sm text-muted-foreground">
+                      <label className="text-xs md:text-sm text-muted-foreground">From</label>
+                      <span className="text-xs md:text-sm text-muted-foreground">
                         Balance: {sourceToken.balance || '0.00'} {sourceToken.symbol}
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4">
                       <input
                         type="number"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
-                        className="flex-1 text-3xl font-bold bg-transparent border-none outline-none text-foreground"
+                        className="flex-1 text-2xl md:text-3xl font-bold bg-transparent border-none outline-none text-foreground min-w-0"
                         placeholder="0.0"
                       />
                       
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 justify-end flex-shrink-0">
                         {/* Chain Selector */}
                         <div className="relative">
                           <button
@@ -313,10 +305,10 @@ export default function Swap() {
                               setShowSourceChainDropdown(!showSourceChainDropdown);
                               setShowSourceTokenDropdown(false);
                             }}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted hover:bg-muted/80 transition-colors"
+                            className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-2 rounded-xl bg-muted hover:bg-muted/80 transition-colors"
                           >
-                            <span className="text-lg">{sourceChain.icon}</span>
-                            <ChevronDown className="w-4 h-4" />
+                            <span className="text-base md:text-lg">{sourceChain.icon}</span>
+                            <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
                           </button>
                           
                           <AnimatePresence>
@@ -325,7 +317,7 @@ export default function Swap() {
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
-                                className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-lg z-10 overflow-hidden"
+                                className="absolute right-0 top-full mt-2 w-40 md:w-48 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden"
                               >
                                 {chains.map((chain) => (
                                   <button
@@ -340,8 +332,8 @@ export default function Swap() {
                                     }}
                                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors"
                                   >
-                                    <span className="text-xl">{chain.icon}</span>
-                                    <span className="font-medium text-foreground">{chain.name}</span>
+                                    <span className="text-lg md:text-xl">{chain.icon}</span>
+                                    <span className="font-medium text-foreground text-sm">{chain.name}</span>
                                   </button>
                                 ))}
                               </motion.div>
@@ -356,11 +348,11 @@ export default function Swap() {
                               setShowSourceTokenDropdown(!showSourceTokenDropdown);
                               setShowSourceChainDropdown(false);
                             }}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted hover:bg-muted/80 transition-colors"
+                            className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-2 rounded-xl bg-muted hover:bg-muted/80 transition-colors"
                           >
-                            <span className="text-lg">{sourceToken.icon}</span>
-                            <span className="font-medium">{sourceToken.symbol}</span>
-                            <ChevronDown className="w-4 h-4" />
+                            <span className="text-base md:text-lg">{sourceToken.icon}</span>
+                            <span className="font-medium text-sm">{sourceToken.symbol}</span>
+                            <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
                           </button>
                           
                           <AnimatePresence>
@@ -369,7 +361,7 @@ export default function Swap() {
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
-                                className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-lg z-10 overflow-hidden"
+                                className="absolute right-0 top-full mt-2 w-40 md:w-48 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden"
                               >
                                 {(defaultTokens[sourceChain.id] || []).map((token) => (
                                   <button
@@ -380,9 +372,9 @@ export default function Swap() {
                                     }}
                                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors"
                                   >
-                                    <span className="text-xl">{token.icon}</span>
+                                    <span className="text-lg md:text-xl">{token.icon}</span>
                                     <div className="text-left">
-                                      <div className="font-medium text-foreground">{token.symbol}</div>
+                                      <div className="font-medium text-foreground text-sm">{token.symbol}</div>
                                       <div className="text-xs text-muted-foreground">{token.name}</div>
                                     </div>
                                   </button>
@@ -395,7 +387,7 @@ export default function Swap() {
                     </div>
                     
                     {numAmount > 0 && (
-                      <p className="text-sm text-muted-foreground mt-2">
+                      <p className="text-xs md:text-sm text-muted-foreground mt-2">
                         ≈ ${sourceValueUSD.toFixed(2)}
                       </p>
                     )}
@@ -413,70 +405,87 @@ export default function Swap() {
 
                   {/* Swap Arrow */}
                   <div className="flex justify-center -my-2 relative z-10">
-                    <div className="p-3 rounded-full bg-primary/10 border-4 border-background">
-                      <ArrowDownUp className="w-5 h-5 text-primary" />
+                    <div className="p-2 md:p-3 rounded-full bg-primary/10 border-4 border-background">
+                      <ArrowDownUp className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                     </div>
                   </div>
 
                   {/* To Section */}
-                  <div className="bg-card rounded-2xl border border-border p-6">
+                  <div className="bg-card rounded-2xl border border-border p-4 md:p-6">
                     <div className="flex justify-between mb-3">
-                      <label className="text-sm text-muted-foreground">To (Estimated)</label>
+                      <label className="text-xs md:text-sm text-muted-foreground">To (Estimated)</label>
                     </div>
                     
                     <div className="flex items-center gap-4">
-                      <div className="flex-1 text-3xl font-bold text-foreground">
+                      <div className="flex-1 text-2xl md:text-3xl font-bold text-foreground">
                         {numAmount > 0 ? finalXRP.toFixed(4) : '0.0'}
                       </div>
                       
-                      <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10">
-                        <span className="text-xl">✕</span>
-                        <span className="font-medium text-primary">XRP</span>
+                      <div className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 rounded-xl bg-primary/10">
+                        <span className="text-lg md:text-xl">✕</span>
+                        <span className="font-medium text-primary text-sm md:text-base">XRP</span>
                       </div>
                     </div>
                     
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <p className="text-xs md:text-sm text-muted-foreground mt-2">
                       1 XRP ≈ ${xrpPrice.toFixed(4)}
+                    </p>
+                  </div>
+
+                  {/* XRP Receiving Address - Required Input */}
+                  <div className="bg-card rounded-2xl border border-primary/20 p-4 md:p-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Wallet className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                      <label className="text-sm md:text-base font-semibold text-foreground">XRP Receiving Address</label>
+                    </div>
+                    <Input
+                      placeholder="Enter your XRP wallet address (e.g., rXXX...)"
+                      value={customReceiveAddress}
+                      onChange={(e) => setCustomReceiveAddress(e.target.value)}
+                      className="font-mono text-xs md:text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Your swapped XRP will be sent to this address
                     </p>
                   </div>
 
                   {/* Wallet Warning */}
                   {!receivingAddress && (
-                    <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-                      <AlertTriangle className="w-5 h-5 mt-0.5" />
+                    <div className="flex items-start gap-3 p-3 md:p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                      <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="font-medium">No receiving wallet</p>
-                        <p className="text-sm opacity-80">Connect a wallet or enter a custom address to receive XRP.</p>
+                        <p className="font-medium text-sm">XRP address required</p>
+                        <p className="text-xs md:text-sm opacity-80">Enter your XRP wallet address above to receive tokens.</p>
                       </div>
                     </div>
                   )}
 
                   {/* Details */}
                   {numAmount > 0 && (
-                    <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-                      <div className="flex justify-between text-sm">
+                    <div className="bg-muted/50 rounded-xl p-3 md:p-4 space-y-2 md:space-y-3">
+                      <div className="flex justify-between text-xs md:text-sm">
                         <span className="text-muted-foreground flex items-center gap-1">
                           Rate
-                          <Info className="w-3.5 h-3.5" />
+                          <Info className="w-3 h-3 md:w-3.5 md:h-3.5" />
                         </span>
                         <span className="text-foreground">
                           1 {sourceToken.symbol} = {(tokenPrice / xrpPrice).toFixed(4)} XRP
                         </span>
                       </div>
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs md:text-sm">
                         <span className="text-muted-foreground">Swap Fee (0.3%)</span>
                         <span className="text-foreground">${fee.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs md:text-sm">
                         <span className="text-muted-foreground">Network Fee</span>
                         <span className="text-foreground">${networkFee.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs md:text-sm">
                         <span className="text-muted-foreground">Slippage Tolerance</span>
                         <span className="text-foreground">{slippage}%</span>
                       </div>
                       <div className="h-px bg-border my-2" />
-                      <div className="flex justify-between font-semibold">
+                      <div className="flex justify-between font-semibold text-sm md:text-base">
                         <span className="text-foreground">You receive</span>
                         <span className="text-primary">{finalXRP.toFixed(4)} XRP</span>
                       </div>
@@ -487,9 +496,9 @@ export default function Swap() {
                   <Button
                     onClick={() => setStep('confirm')}
                     disabled={numAmount <= 0 || !receivingAddress}
-                    className="w-full h-14 text-lg bg-primary hover:bg-primary/90"
+                    className="w-full h-12 md:h-14 text-base md:text-lg bg-primary hover:bg-primary/90"
                   >
-                    {numAmount <= 0 ? 'Enter amount' : !receivingAddress ? 'Connect Wallet' : 'Review Swap'}
+                    {numAmount <= 0 ? 'Enter amount' : !receivingAddress ? 'Enter XRP Address' : 'Review Swap'}
                   </Button>
                 </motion.div>
               )}
@@ -500,55 +509,55 @@ export default function Swap() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="bg-card rounded-2xl border border-border p-8"
+                  className="bg-card rounded-2xl border border-border p-6 md:p-8"
                 >
-                  <h2 className="text-2xl font-bold text-foreground text-center mb-6">Confirm Swap</h2>
+                  <h2 className="text-xl md:text-2xl font-bold text-foreground text-center mb-6">Confirm Swap</h2>
                   
                   <div className="space-y-4 mb-6">
-                    <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{sourceToken.icon}</span>
+                    <div className="flex items-center justify-between p-3 md:p-4 bg-muted/50 rounded-xl">
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <span className="text-xl md:text-2xl">{sourceToken.icon}</span>
                         <div>
-                          <div className="font-semibold text-foreground">{numAmount} {sourceToken.symbol}</div>
-                          <div className="text-sm text-muted-foreground">{sourceChain.name}</div>
+                          <div className="font-semibold text-foreground text-sm md:text-base">{numAmount} {sourceToken.symbol}</div>
+                          <div className="text-xs md:text-sm text-muted-foreground">{sourceChain.name}</div>
                         </div>
                       </div>
-                      <span className="text-muted-foreground">${sourceValueUSD.toFixed(2)}</span>
+                      <span className="text-muted-foreground text-sm">${sourceValueUSD.toFixed(2)}</span>
                     </div>
 
                     <div className="flex justify-center">
-                      <ArrowDownUp className="w-6 h-6 text-primary" />
+                      <ArrowDownUp className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                     </div>
 
-                    <div className="flex items-center justify-between p-4 bg-primary/10 rounded-xl border border-primary/20">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">✕</span>
+                    <div className="flex items-center justify-between p-3 md:p-4 bg-primary/10 rounded-xl border border-primary/20">
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <span className="text-xl md:text-2xl">✕</span>
                         <div>
-                          <div className="font-semibold text-foreground">{finalXRP.toFixed(4)} XRP</div>
-                          <div className="text-sm text-muted-foreground">XRP Ledger</div>
+                          <div className="font-semibold text-foreground text-sm md:text-base">{finalXRP.toFixed(4)} XRP</div>
+                          <div className="text-xs md:text-sm text-muted-foreground">XRP Ledger</div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-muted/30 rounded-xl p-4 space-y-2 mb-6">
-                    <div className="flex justify-between text-sm">
+                  <div className="bg-muted/30 rounded-xl p-3 md:p-4 space-y-2 mb-6">
+                    <div className="flex justify-between text-xs md:text-sm">
                       <span className="text-muted-foreground">Swap Fee</span>
                       <span className="text-foreground">${fee.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs md:text-sm">
                       <span className="text-muted-foreground">Network Fee</span>
                       <span className="text-foreground">${networkFee.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs md:text-sm">
                       <span className="text-muted-foreground">Destination</span>
-                      <span className="text-foreground font-mono text-xs">
-                        {primaryWallet?.wallet_address.slice(0, 8)}...{primaryWallet?.wallet_address.slice(-6)}
+                      <span className="text-foreground font-mono text-xs truncate max-w-[120px] md:max-w-none">
+                        {receivingAddress.slice(0, 8)}...{receivingAddress.slice(-6)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                     <Button
                       variant="outline"
                       onClick={() => setStep('input')}
@@ -571,16 +580,16 @@ export default function Swap() {
                   key="processing"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-card rounded-2xl border border-border p-12 text-center"
+                  className="bg-card rounded-2xl border border-border p-8 md:p-12 text-center"
                 >
                   <div className="relative inline-block mb-6">
-                    <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
                   </div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">Processing Swap</h2>
-                  <p className="text-muted-foreground mb-4">
+                  <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">Processing Swap</h2>
+                  <p className="text-sm md:text-base text-muted-foreground mb-4">
                     Converting {numAmount} {sourceToken.symbol} to XRP...
                   </p>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs md:text-sm text-muted-foreground">
                     This may take a few moments. Please don't close this page.
                   </div>
                 </motion.div>
@@ -591,20 +600,20 @@ export default function Swap() {
                   key="success"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-card rounded-2xl border border-border p-8 text-center"
+                  className="bg-card rounded-2xl border border-border p-6 md:p-8 text-center"
                 >
-                  <div className="inline-flex p-6 rounded-full bg-green-500/10 mb-6">
-                    <CheckCircle className="w-16 h-16 text-green-500" />
+                  <div className="inline-flex p-4 md:p-6 rounded-full bg-green-500/10 mb-6">
+                    <CheckCircle className="w-12 h-12 md:w-16 md:h-16 text-green-500" />
                   </div>
                   
-                  <h2 className="text-2xl font-bold text-foreground mb-2">Swap Complete!</h2>
-                  <p className="text-muted-foreground mb-6">
+                  <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">Swap Complete!</h2>
+                  <p className="text-sm md:text-base text-muted-foreground mb-6">
                     Your XRP has been sent to your wallet.
                   </p>
 
-                  <div className="bg-muted/50 rounded-xl p-6 mb-6">
-                    <div className="text-sm text-muted-foreground mb-1">You received</div>
-                    <div className="text-3xl font-bold text-primary">{finalXRP.toFixed(4)} XRP</div>
+                  <div className="bg-muted/50 rounded-xl p-4 md:p-6 mb-6">
+                    <div className="text-xs md:text-sm text-muted-foreground mb-1">You received</div>
+                    <div className="text-2xl md:text-3xl font-bold text-primary">{finalXRP.toFixed(4)} XRP</div>
                   </div>
 
                   <Button
@@ -621,75 +630,40 @@ export default function Swap() {
             </AnimatePresence>
           </div>
 
-          {/* Sidebar - Wallet & Receive Address */}
-          <div className="space-y-4">
-            {/* Receiving Wallet Section */}
+          {/* Sidebar - Connect Wallet for Source Assets */}
+          <div className="space-y-4 order-1 lg:order-2">
+            {/* Connect Source Wallet Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-card rounded-2xl border border-border p-6"
+              className="bg-card rounded-2xl border border-border p-4 md:p-6"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold text-foreground">Receive XRP</h3>
+                  <Wallet className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                  <h3 className="font-semibold text-foreground text-sm md:text-base">Source Wallet</h3>
                 </div>
               </div>
 
-              {/* Connect Wallet Button - Uses Reown Modal */}
-              {!hasConnectedWallet && !useCustomAddress && (
-                <div className="space-y-3 mb-4">
+              {/* Connect Wallet Button - Uses Chain Selection Modal */}
+              {!hasConnectedWallet ? (
+                <div className="space-y-3">
                   <WalletConnectButton className="w-full" />
                   <p className="text-xs text-muted-foreground text-center">
-                    Or enter a custom address below
+                    Connect to see your token balances
                   </p>
                 </div>
-              )}
-
-              {/* Connected Wallet Display */}
-              {hasConnectedWallet && !useCustomAddress && (
-                <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20">
+              ) : (
+                <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
                   <div className="flex items-center gap-2 mb-1">
                     <CheckCircle className="w-4 h-4 text-green-500" />
                     <span className="text-sm font-medium text-foreground">Connected</span>
                   </div>
                   <div className="font-mono text-xs text-muted-foreground truncate">
-                    {receivingAddress}
+                    {walletStore.evmAddress || walletStore.solanaAddress || walletStore.tronAddress || walletStore.btcAddress}
                   </div>
                 </div>
               )}
-
-              {/* Custom Address Input */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => setUseCustomAddress(!useCustomAddress)}
-                  className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
-                >
-                  <Edit3 className="w-4 h-4" />
-                  {useCustomAddress ? 'Use connected wallet' : 'Enter custom address'}
-                </button>
-
-                <AnimatePresence>
-                  {useCustomAddress && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <Input
-                        placeholder="Enter XRP/wallet address"
-                        value={customReceiveAddress}
-                        onChange={(e) => setCustomReceiveAddress(e.target.value)}
-                        className="font-mono text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground mt-2">
-                        XRP will be sent to this address
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
             </motion.div>
 
             {/* Your Assets */}
@@ -697,43 +671,43 @@ export default function Swap() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-card rounded-2xl border border-border p-6"
+              className="bg-card rounded-2xl border border-border p-4 md:p-6"
             >
-              <h3 className="font-semibold text-foreground mb-4">Your Assets</h3>
+              <h3 className="font-semibold text-foreground mb-4 text-sm md:text-base">Your Assets</h3>
               
               {!hasConnectedWallet ? (
-                <div className="text-center py-6">
-                  <Wallet className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground text-sm mb-4">
+                <div className="text-center py-4 md:py-6">
+                  <Wallet className="w-10 h-10 md:w-12 md:h-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground text-xs md:text-sm mb-4">
                     Connect a wallet to see your token balances
                   </p>
                   <WalletConnectButton variant="outline" size="sm" />
                 </div>
               ) : balancesLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <div className="flex items-center justify-center py-6 md:py-8">
+                  <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin text-primary" />
                 </div>
               ) : walletTokens.length === 0 ? (
-                <div className="text-center py-6">
-                  <p className="text-muted-foreground text-sm">
+                <div className="text-center py-4 md:py-6">
+                  <p className="text-muted-foreground text-xs md:text-sm">
                     No tokens found in your connected wallets
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2 md:space-y-3">
                   {walletTokens.slice(0, 5).map((token, idx) => (
                     <button
                       key={`${token.symbol}-${token.chain}-${idx}`}
                       onClick={() => handleSelectWalletToken(token)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors"
+                      className="w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl hover:bg-muted transition-colors"
                     >
-                      <span className="text-xl">{token.icon}</span>
+                      <span className="text-lg md:text-xl">{token.icon}</span>
                       <div className="flex-1 text-left">
-                        <div className="font-medium text-foreground">{token.symbol}</div>
+                        <div className="font-medium text-foreground text-sm">{token.symbol}</div>
                         <div className="text-xs text-muted-foreground">{token.chain}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-medium text-foreground">{parseFloat(token.balance).toFixed(4)}</div>
+                        <div className="font-medium text-foreground text-sm">{parseFloat(token.balance).toFixed(4)}</div>
                         <div className="text-xs text-muted-foreground">${token.usdValue.toFixed(2)}</div>
                       </div>
                     </button>
@@ -747,21 +721,21 @@ export default function Swap() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-card rounded-2xl border border-border p-6"
+              className="bg-card rounded-2xl border border-border p-4 md:p-6"
             >
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-xl">✕</span>
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="text-lg md:text-xl">✕</span>
                 </div>
                 <div>
-                  <div className="font-semibold text-foreground">XRP</div>
+                  <div className="font-semibold text-foreground text-sm md:text-base">XRP</div>
                   <div className="text-xs text-muted-foreground">Receiving</div>
                 </div>
               </div>
-              <div className="text-2xl font-bold text-foreground">
+              <div className="text-xl md:text-2xl font-bold text-foreground">
                 ${xrpPrice.toFixed(4)}
               </div>
-              <div className={`text-sm ${prices.xrp?.usd_24h_change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <div className={`text-xs md:text-sm ${prices.xrp?.usd_24h_change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                 {prices.xrp?.usd_24h_change >= 0 ? '+' : ''}{prices.xrp?.usd_24h_change?.toFixed(2) || '0.00'}% (24h)
               </div>
             </motion.div>
