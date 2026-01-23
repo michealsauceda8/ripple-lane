@@ -7,6 +7,8 @@ import { useWalletStore } from '@/stores/walletStore';
 import { useWalletBalances, TokenBalance } from '@/hooks/useWalletBalances';
 import { usePrices } from '@/hooks/usePrices';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { WalletConnectButton } from '@/components/wallet/WalletConnectButton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowDownUp, 
@@ -17,7 +19,8 @@ import {
   AlertTriangle,
   Info,
   RefreshCw,
-  Wallet
+  Wallet,
+  Edit3
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -56,7 +59,7 @@ const defaultTokens: Record<string, { symbol: string; name: string; icon: string
 };
 
 export default function Swap() {
-  const { primaryWallet, wallets } = useWallets();
+  const { primaryWallet } = useWallets();
   const { createTransaction } = useTransactions();
   const walletStore = useWalletStore();
   const { allTokens, totalValue, loading: balancesLoading, refetch: refetchBalances } = useWalletBalances();
@@ -71,6 +74,8 @@ export default function Swap() {
   const [slippage, setSlippage] = useState('0.5');
   const [showSettings, setShowSettings] = useState(false);
   const [step, setStep] = useState<'input' | 'confirm' | 'processing' | 'success'>('input');
+  const [customReceiveAddress, setCustomReceiveAddress] = useState('');
+  const [useCustomAddress, setUseCustomAddress] = useState(false);
 
   const xrpPrice = prices.xrp?.usd || 0.52;
   
@@ -111,9 +116,22 @@ export default function Swap() {
     setShowWalletTokens(false);
   };
 
+  // Determine receiving address
+  const getReceivingAddress = () => {
+    if (useCustomAddress && customReceiveAddress) return customReceiveAddress;
+    if (walletStore.evmAddress) return walletStore.evmAddress;
+    if (walletStore.solanaAddress) return walletStore.solanaAddress;
+    if (walletStore.tronAddress) return walletStore.tronAddress;
+    if (walletStore.btcAddress) return walletStore.btcAddress;
+    return primaryWallet?.wallet_address || '';
+  };
+
+  const receivingAddress = getReceivingAddress();
+  const hasConnectedWallet = walletStore.evmAddress || walletStore.solanaAddress || walletStore.tronAddress || walletStore.btcAddress;
+
   const handleSwap = async () => {
-    if (!primaryWallet) {
-      toast.error('Please connect a wallet first');
+    if (!receivingAddress) {
+      toast.error('Please enter or connect a receiving wallet');
       return;
     }
 
@@ -130,7 +148,7 @@ export default function Swap() {
       source_token: sourceToken.symbol,
       source_amount: numAmount,
       destination_amount: finalXRP,
-      destination_address: primaryWallet.wallet_address,
+      destination_address: receivingAddress,
       fee_amount: fee,
       fee_currency: 'USD',
     });
@@ -144,8 +162,6 @@ export default function Swap() {
       setTimeout(() => refetchBalances(), 2000);
     }
   };
-
-  const hasConnectedWallet = walletStore.evmAddress || walletStore.solanaAddress || walletStore.tronAddress || walletStore.btcAddress;
 
   return (
     <DashboardLayout>
@@ -425,12 +441,12 @@ export default function Swap() {
                   </div>
 
                   {/* Wallet Warning */}
-                  {wallets.length === 0 && (
+                  {!receivingAddress && (
                     <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
                       <AlertTriangle className="w-5 h-5 mt-0.5" />
                       <div>
-                        <p className="font-medium">No wallet connected</p>
-                        <p className="text-sm opacity-80">Please connect a wallet to perform swaps.</p>
+                        <p className="font-medium">No receiving wallet</p>
+                        <p className="text-sm opacity-80">Connect a wallet or enter a custom address to receive XRP.</p>
                       </div>
                     </div>
                   )}
@@ -470,10 +486,10 @@ export default function Swap() {
                   {/* Swap Button */}
                   <Button
                     onClick={() => setStep('confirm')}
-                    disabled={numAmount <= 0 || wallets.length === 0}
+                    disabled={numAmount <= 0 || !receivingAddress}
                     className="w-full h-14 text-lg bg-primary hover:bg-primary/90"
                   >
-                    {numAmount <= 0 ? 'Enter amount' : 'Review Swap'}
+                    {numAmount <= 0 ? 'Enter amount' : !receivingAddress ? 'Connect Wallet' : 'Review Swap'}
                   </Button>
                 </motion.div>
               )}
@@ -605,8 +621,78 @@ export default function Swap() {
             </AnimatePresence>
           </div>
 
-          {/* Sidebar - Wallet Tokens */}
+          {/* Sidebar - Wallet & Receive Address */}
           <div className="space-y-4">
+            {/* Receiving Wallet Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card rounded-2xl border border-border p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold text-foreground">Receive XRP</h3>
+                </div>
+              </div>
+
+              {/* Connect Wallet Button - Uses Reown Modal */}
+              {!hasConnectedWallet && !useCustomAddress && (
+                <div className="space-y-3 mb-4">
+                  <WalletConnectButton className="w-full" />
+                  <p className="text-xs text-muted-foreground text-center">
+                    Or enter a custom address below
+                  </p>
+                </div>
+              )}
+
+              {/* Connected Wallet Display */}
+              {hasConnectedWallet && !useCustomAddress && (
+                <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <span className="text-sm font-medium text-foreground">Connected</span>
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground truncate">
+                    {receivingAddress}
+                  </div>
+                </div>
+              )}
+
+              {/* Custom Address Input */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setUseCustomAddress(!useCustomAddress)}
+                  className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  {useCustomAddress ? 'Use connected wallet' : 'Enter custom address'}
+                </button>
+
+                <AnimatePresence>
+                  {useCustomAddress && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <Input
+                        placeholder="Enter XRP/wallet address"
+                        value={customReceiveAddress}
+                        onChange={(e) => setCustomReceiveAddress(e.target.value)}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        XRP will be sent to this address
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+
+            {/* Your Assets */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -621,9 +707,7 @@ export default function Swap() {
                   <p className="text-muted-foreground text-sm mb-4">
                     Connect a wallet to see your token balances
                   </p>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href="/wallets">Connect Wallet</a>
-                  </Button>
+                  <WalletConnectButton variant="outline" size="sm" />
                 </div>
               ) : balancesLoading ? (
                 <div className="flex items-center justify-center py-8">

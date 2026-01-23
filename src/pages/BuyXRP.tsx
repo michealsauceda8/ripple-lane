@@ -8,6 +8,7 @@ import { useWalletStore } from '@/stores/walletStore';
 import { MoonPayModal } from '@/components/buy/MoonPayModal';
 import { WalletConnectButton } from '@/components/wallet/WalletConnectButton';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CreditCard, 
@@ -20,7 +21,8 @@ import {
   Wallet,
   ExternalLink,
   Link,
-  Unlink
+  Unlink,
+  Edit3
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,7 +43,8 @@ export default function BuyXRP() {
   const [selectedCurrency, setSelectedCurrency] = useState(fiatCurrencies[0]);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [showMoonPayModal, setShowMoonPayModal] = useState(false);
-  const [showWalletOptions, setShowWalletOptions] = useState(false);
+  const [customReceiveAddress, setCustomReceiveAddress] = useState('');
+  const [useCustomAddress, setUseCustomAddress] = useState(false);
 
   const xrpPrice = prices.xrp?.usd || 0.52;
   const xrpChange = prices.xrp?.usd_24h_change || 0;
@@ -52,8 +55,9 @@ export default function BuyXRP() {
   // Check for connected external wallets
   const hasConnectedWallet = walletStore.evmAddress || walletStore.solanaAddress || walletStore.tronAddress || walletStore.btcAddress;
   
-  // Get the receiving address (prefer connected wallet, then saved wallet)
+  // Get the receiving address (prefer custom, then connected wallet, then saved wallet)
   const getReceivingAddress = () => {
+    if (useCustomAddress && customReceiveAddress) return customReceiveAddress;
     if (walletStore.evmAddress) return walletStore.evmAddress;
     if (walletStore.solanaAddress) return walletStore.solanaAddress;
     if (walletStore.tronAddress) return walletStore.tronAddress;
@@ -146,7 +150,7 @@ export default function BuyXRP() {
                 )}
               </div>
 
-              {hasConnectedWallet ? (
+              {hasConnectedWallet && !useCustomAddress ? (
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
                     {connectedWalletInfo?.icon}
@@ -162,58 +166,14 @@ export default function BuyXRP() {
                   </div>
                   <div className="text-green-500 text-sm font-medium">Connected</div>
                 </div>
-              ) : (
+              ) : !useCustomAddress ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    Connect your wallet to receive XRP directly, or we'll send to your saved wallet.
+                    Connect your wallet to receive XRP directly, or enter a custom address.
                   </p>
                   
-                  <div className="grid grid-cols-2 gap-3">
-                    <WalletConnectButton
-                      walletType="metamask"
-                      variant="outline"
-                      size="lg"
-                      className="h-14"
-                    />
-                    <WalletConnectButton
-                      walletType="phantom"
-                      variant="outline"
-                      size="lg"
-                      className="h-14"
-                    />
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowWalletOptions(!showWalletOptions)}
-                    className="w-full text-muted-foreground"
-                  >
-                    {showWalletOptions ? 'Hide' : 'Show'} more wallet options
-                  </Button>
-
-                  <AnimatePresence>
-                    {showWalletOptions && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="grid grid-cols-2 gap-3 overflow-hidden"
-                      >
-                        <WalletConnectButton
-                          walletType="coinbase"
-                          variant="outline"
-                          size="lg"
-                          className="h-14"
-                        />
-                        <WalletConnectButton
-                          walletType="tronlink"
-                          variant="outline"
-                          size="lg"
-                          className="h-14"
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* Main Connect Wallet Button - Uses Reown Modal */}
+                  <WalletConnectButton className="w-full h-14" size="lg" />
 
                   {wallets.length > 0 && (
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 text-sm">
@@ -224,7 +184,41 @@ export default function BuyXRP() {
                     </div>
                   )}
                 </div>
-              )}
+              ) : null}
+
+              {/* Custom Address Input Section */}
+              <div className="mt-4 space-y-3">
+                <button
+                  onClick={() => setUseCustomAddress(!useCustomAddress)}
+                  className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  {useCustomAddress ? 'Use connected wallet instead' : 'Enter custom receiving address'}
+                </button>
+
+                <AnimatePresence>
+                  {useCustomAddress && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Enter XRP/wallet address to receive tokens"
+                          value={customReceiveAddress}
+                          onChange={(e) => setCustomReceiveAddress(e.target.value)}
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Your purchased XRP will be sent to this address
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </motion.div>
 
             <motion.div
