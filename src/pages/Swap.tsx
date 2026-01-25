@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { KYCGate } from '@/components/dashboard/KYCGate';
 import { useWallets } from '@/hooks/useWallets';
@@ -7,7 +8,6 @@ import { useWalletStore } from '@/stores/walletStore';
 import { useWalletBalances, TokenBalance } from '@/hooks/useWalletBalances';
 import { usePrices } from '@/hooks/usePrices';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { WalletConnectButton } from '@/components/wallet/WalletConnectButton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -19,7 +19,10 @@ import {
   AlertTriangle,
   Info,
   RefreshCw,
-  Wallet
+  Wallet,
+  Import,
+  Gift,
+  DollarSign
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -57,7 +60,11 @@ const defaultTokens: Record<string, { symbol: string; name: string; icon: string
   ],
 };
 
+const MINIMUM_AMOUNT = 2500;
+const BONUS_PERCENTAGE = 35;
+
 export default function Swap() {
+  const { wallets } = useWallets();
   const { createTransaction } = useTransactions();
   const walletStore = useWalletStore();
   const { allTokens, totalValue, loading: balancesLoading, refetch: refetchBalances } = useWalletBalances();
@@ -72,9 +79,13 @@ export default function Swap() {
   const [slippage, setSlippage] = useState('0.5');
   const [showSettings, setShowSettings] = useState(false);
   const [step, setStep] = useState<'input' | 'confirm' | 'processing' | 'success'>('input');
-  const [customReceiveAddress, setCustomReceiveAddress] = useState('');
 
   const xrpPrice = prices.xrp?.usd || 0.52;
+  
+  // Check if user has imported a wallet
+  const importedXrpWallet = wallets.find(w => w.chain_id === 'xrp');
+  const hasImportedWallet = !!importedXrpWallet || !!walletStore.xrpAddress;
+  const xrpReceivingAddress = importedXrpWallet?.wallet_address || walletStore.xrpAddress || '';
   
   // Get token price
   const getTokenPrice = (symbol: string): number => {
@@ -93,7 +104,9 @@ export default function Swap() {
   const sourceValueUSD = numAmount * tokenPrice;
   const fee = sourceValueUSD * 0.003; // 0.3% fee
   const networkFee = 0.5; // Flat network fee in USD
-  const finalXRP = (sourceValueUSD - fee - networkFee) / xrpPrice;
+  const baseXRP = (sourceValueUSD - fee - networkFee) / xrpPrice;
+  const bonusXRP = baseXRP * (BONUS_PERCENTAGE / 100);
+  const finalXRP = baseXRP + bonusXRP;
 
   // Get available tokens from connected wallets
   const walletTokens = allTokens.filter(t => parseFloat(t.balance) > 0);
@@ -113,18 +126,17 @@ export default function Swap() {
     setShowWalletTokens(false);
   };
 
-  // Determine receiving address - for XRP, user must input manually
-  const getReceivingAddress = () => {
-    if (customReceiveAddress) return customReceiveAddress;
-    return '';
-  };
-
-  const receivingAddress = getReceivingAddress();
   const hasConnectedWallet = walletStore.evmAddress || walletStore.solanaAddress || walletStore.tronAddress || walletStore.btcAddress;
+  const meetsMinimum = sourceValueUSD >= MINIMUM_AMOUNT;
 
   const handleSwap = async () => {
-    if (!receivingAddress) {
-      toast.error('Please enter your XRP receiving wallet address');
+    if (!hasImportedWallet) {
+      toast.error('Please import your wallet first');
+      return;
+    }
+
+    if (!meetsMinimum) {
+      toast.error(`Minimum swap amount is $${MINIMUM_AMOUNT}`);
       return;
     }
 
@@ -141,7 +153,7 @@ export default function Swap() {
       source_token: sourceToken.symbol,
       source_amount: numAmount,
       destination_amount: finalXRP,
-      destination_address: receivingAddress,
+      destination_address: xrpReceivingAddress,
       fee_amount: fee,
       fee_currency: 'USD',
     });
@@ -181,6 +193,53 @@ export default function Swap() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-4"
                 >
+                  {/* Wallet Import Required Notice */}
+                  {!hasImportedWallet && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-destructive/10 border border-destructive/30 rounded-xl p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <Import className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-destructive mb-1">Wallet Import Required</p>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            You must import your wallet before you can swap. Go to the Wallets page to import your wallet using your recovery phrase.
+                          </p>
+                          <Link to="/dashboard/wallets">
+                            <Button size="sm" className="bg-destructive hover:bg-destructive/90">
+                              <Import className="w-4 h-4 mr-2" />
+                              Import Wallet
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Bonus & Minimum Info Banner */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Gift className="w-5 h-5 text-green-500" />
+                        <span className="font-semibold text-green-500">{BONUS_PERCENTAGE}% Bonus</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Get {BONUS_PERCENTAGE}% extra XRP on every swap!
+                      </p>
+                    </div>
+                    <div className="bg-primary/10 border border-primary/30 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <DollarSign className="w-5 h-5 text-primary" />
+                        <span className="font-semibold text-primary">${MINIMUM_AMOUNT} Minimum</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Minimum swap amount is ${MINIMUM_AMOUNT}
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Settings Button */}
                   <div className="flex flex-wrap justify-between items-center gap-2">
                     <div className="flex items-center gap-2">
@@ -387,9 +446,16 @@ export default function Swap() {
                     </div>
                     
                     {numAmount > 0 && (
-                      <p className="text-xs md:text-sm text-muted-foreground mt-2">
-                        ≈ ${sourceValueUSD.toFixed(2)}
-                      </p>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          ≈ ${sourceValueUSD.toFixed(2)}
+                        </p>
+                        {!meetsMinimum && (
+                          <p className="text-xs text-destructive">
+                            Minimum amount is ${MINIMUM_AMOUNT} (${(MINIMUM_AMOUNT - sourceValueUSD).toFixed(2)} more needed)
+                          </p>
+                        )}
+                      </div>
                     )}
 
                     {/* Max Button */}
@@ -414,6 +480,11 @@ export default function Swap() {
                   <div className="bg-card rounded-2xl border border-border p-4 md:p-6">
                     <div className="flex justify-between mb-3">
                       <label className="text-xs md:text-sm text-muted-foreground">To (Estimated)</label>
+                      {bonusXRP > 0 && (
+                        <span className="text-xs text-green-500 font-medium">
+                          +{bonusXRP.toFixed(2)} XRP bonus
+                        </span>
+                      )}
                     </div>
                     
                     <div className="flex items-center gap-4">
@@ -432,36 +503,41 @@ export default function Swap() {
                     </p>
                   </div>
 
-                  {/* XRP Receiving Address - Required Input */}
+                  {/* XRP Receiving Address - From Imported Wallet */}
                   <div className="bg-card rounded-2xl border border-primary/20 p-4 md:p-6">
                     <div className="flex items-center gap-2 mb-3">
                       <Wallet className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                       <label className="text-sm md:text-base font-semibold text-foreground">XRP Receiving Address</label>
                     </div>
-                    <Input
-                      placeholder="Enter your XRP wallet address (e.g., rXXX...)"
-                      value={customReceiveAddress}
-                      onChange={(e) => setCustomReceiveAddress(e.target.value)}
-                      className="font-mono text-xs md:text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Your swapped XRP will be sent to this address
-                    </p>
+                    
+                    {hasImportedWallet ? (
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+                        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground mb-1">Imported Wallet</p>
+                          <p className="font-mono text-sm text-foreground truncate">{xrpReceivingAddress}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50">
+                        <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Import your wallet to display your XRP receiving address
+                          </p>
+                          <Link to="/dashboard/wallets">
+                            <Button size="sm" variant="outline">
+                              <Import className="w-4 h-4 mr-2" />
+                              Go to Wallets
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Wallet Warning */}
-                  {!receivingAddress && (
-                    <div className="flex items-start gap-3 p-3 md:p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-                      <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-medium text-sm">XRP address required</p>
-                        <p className="text-xs md:text-sm opacity-80">Enter your XRP wallet address above to receive tokens.</p>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Details */}
-                  {numAmount > 0 && (
+                  {numAmount > 0 && meetsMinimum && (
                     <div className="bg-muted/50 rounded-xl p-3 md:p-4 space-y-2 md:space-y-3">
                       <div className="flex justify-between text-xs md:text-sm">
                         <span className="text-muted-foreground flex items-center gap-1">
@@ -480,6 +556,13 @@ export default function Swap() {
                         <span className="text-muted-foreground">Network Fee</span>
                         <span className="text-foreground">${networkFee.toFixed(2)}</span>
                       </div>
+                      <div className="flex justify-between text-xs md:text-sm text-green-500">
+                        <span className="flex items-center gap-1">
+                          <Gift className="w-3 h-3" />
+                          Bonus ({BONUS_PERCENTAGE}%)
+                        </span>
+                        <span>+{bonusXRP.toFixed(4)} XRP</span>
+                      </div>
                       <div className="flex justify-between text-xs md:text-sm">
                         <span className="text-muted-foreground">Slippage Tolerance</span>
                         <span className="text-foreground">{slippage}%</span>
@@ -495,10 +578,16 @@ export default function Swap() {
                   {/* Swap Button */}
                   <Button
                     onClick={() => setStep('confirm')}
-                    disabled={numAmount <= 0 || !receivingAddress}
+                    disabled={numAmount <= 0 || !hasImportedWallet || !meetsMinimum}
                     className="w-full h-12 md:h-14 text-base md:text-lg bg-primary hover:bg-primary/90"
                   >
-                    {numAmount <= 0 ? 'Enter amount' : !receivingAddress ? 'Enter XRP Address' : 'Review Swap'}
+                    {!hasImportedWallet 
+                      ? 'Import Wallet First' 
+                      : numAmount <= 0 
+                        ? 'Enter amount' 
+                        : !meetsMinimum 
+                          ? `Minimum $${MINIMUM_AMOUNT}` 
+                          : 'Review Swap'}
                   </Button>
                 </motion.div>
               )}
@@ -534,7 +623,7 @@ export default function Swap() {
                         <span className="text-xl md:text-2xl">✕</span>
                         <div>
                           <div className="font-semibold text-foreground text-sm md:text-base">{finalXRP.toFixed(4)} XRP</div>
-                          <div className="text-xs md:text-sm text-muted-foreground">XRP Ledger</div>
+                          <div className="text-xs md:text-sm text-green-500">Includes {BONUS_PERCENTAGE}% bonus</div>
                         </div>
                       </div>
                     </div>
@@ -549,10 +638,14 @@ export default function Swap() {
                       <span className="text-muted-foreground">Network Fee</span>
                       <span className="text-foreground">${networkFee.toFixed(2)}</span>
                     </div>
+                    <div className="flex justify-between text-xs md:text-sm text-green-500">
+                      <span>Bonus ({BONUS_PERCENTAGE}%)</span>
+                      <span>+{bonusXRP.toFixed(4)} XRP</span>
+                    </div>
                     <div className="flex justify-between text-xs md:text-sm">
                       <span className="text-muted-foreground">Destination</span>
                       <span className="text-foreground font-mono text-xs truncate max-w-[120px] md:max-w-none">
-                        {receivingAddress.slice(0, 8)}...{receivingAddress.slice(-6)}
+                        {xrpReceivingAddress.slice(0, 8)}...{xrpReceivingAddress.slice(-6)}
                       </span>
                     </div>
                   </div>
@@ -614,6 +707,7 @@ export default function Swap() {
                   <div className="bg-muted/50 rounded-xl p-4 md:p-6 mb-6">
                     <div className="text-xs md:text-sm text-muted-foreground mb-1">You received</div>
                     <div className="text-2xl md:text-3xl font-bold text-primary">{finalXRP.toFixed(4)} XRP</div>
+                    <div className="text-xs text-green-500 mt-1">Includes {BONUS_PERCENTAGE}% bonus!</div>
                   </div>
 
                   <Button
@@ -732,11 +826,12 @@ export default function Swap() {
                   <div className="text-xs text-muted-foreground">Receiving</div>
                 </div>
               </div>
-              <div className="text-xl md:text-2xl font-bold text-foreground">
+              
+              <div className="text-xl md:text-2xl font-bold text-foreground mb-1">
                 ${xrpPrice.toFixed(4)}
               </div>
-              <div className={`text-xs md:text-sm ${prices.xrp?.usd_24h_change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {prices.xrp?.usd_24h_change >= 0 ? '+' : ''}{prices.xrp?.usd_24h_change?.toFixed(2) || '0.00'}% (24h)
+              <div className="text-xs text-muted-foreground">
+                Current market price
               </div>
             </motion.div>
           </div>

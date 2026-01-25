@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { KYCGate } from '@/components/dashboard/KYCGate';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useWallets } from '@/hooks/useWallets';
+import { useWalletStore } from '@/stores/walletStore';
 import { usePrices } from '@/hooks/usePrices';
 import { MoonPayModal } from '@/components/buy/MoonPayModal';
 import { Button } from '@/components/ui/button';
@@ -19,7 +22,10 @@ import {
   ExternalLink,
   Zap,
   Clock,
-  Lock
+  Lock,
+  Import,
+  Gift,
+  DollarSign
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -31,26 +37,39 @@ const fiatCurrencies = [
   { code: 'AUD', symbol: '$', name: 'Australian Dollar', flag: '🇦🇺' },
 ];
 
+const MINIMUM_AMOUNT = 2500;
+const BONUS_PERCENTAGE = 35;
+
 export default function BuyXRP() {
   const { createTransaction } = useTransactions();
+  const { wallets } = useWallets();
+  const walletStore = useWalletStore();
   const { prices } = usePrices();
-  const [amount, setAmount] = useState('100');
+  const [amount, setAmount] = useState('2500');
   const [selectedCurrency, setSelectedCurrency] = useState(fiatCurrencies[0]);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [showMoonPayModal, setShowMoonPayModal] = useState(false);
   const [xrpAddress, setXrpAddress] = useState('');
 
+  // Check if user has imported a wallet
+  const importedXrpWallet = wallets.find(w => w.chain_id === 'xrp');
+  const hasImportedWallet = !!importedXrpWallet || !!walletStore.xrpAddress;
+
   const xrpPrice = prices.xrp?.usd || 0.52;
   const xrpChange = prices.xrp?.usd_24h_change || 0;
   const numAmount = parseFloat(amount) || 0;
   const fee = numAmount * 0.035;
-  const xrpAmount = ((numAmount - fee) / xrpPrice).toFixed(2);
+  const baseXrpAmount = (numAmount - fee) / xrpPrice;
+  const bonusXrpAmount = baseXrpAmount * (BONUS_PERCENTAGE / 100);
+  const totalXrpAmount = baseXrpAmount + bonusXrpAmount;
+
+  const meetsMinimum = numAmount >= MINIMUM_AMOUNT;
 
   const handleMoonPayComplete = async (data: { email: string; amount: number; walletAddress: string }) => {
     const result = await createTransaction({
       transaction_type: 'buy',
       status: 'completed',
-      destination_amount: parseFloat(xrpAmount),
+      destination_amount: totalXrpAmount,
       destination_address: data.walletAddress,
       fiat_currency: selectedCurrency.code,
       fiat_amount: data.amount,
@@ -92,6 +111,62 @@ export default function BuyXRP() {
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
           {/* Main Purchase Card */}
           <div className="lg:col-span-2 space-y-6 order-2 lg:order-1">
+            {/* Wallet Import Required Notice */}
+            {!hasImportedWallet && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-destructive/10 border border-destructive/30 rounded-xl p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <Import className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-destructive mb-1">Wallet Import Required</p>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      You must import your wallet before you can purchase XRP. Go to the Wallets page to import your wallet using your recovery phrase.
+                    </p>
+                    <Link to="/dashboard/wallets">
+                      <Button size="sm" className="bg-destructive hover:bg-destructive/90">
+                        <Import className="w-4 h-4 mr-2" />
+                        Import Wallet
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Bonus & Minimum Info Banner */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-green-500/10 border border-green-500/30 rounded-xl p-4"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Gift className="w-5 h-5 text-green-500" />
+                  <span className="font-semibold text-green-500">{BONUS_PERCENTAGE}% Bonus</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Get {BONUS_PERCENTAGE}% extra XRP on every purchase!
+                </p>
+              </motion.div>
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-primary/10 border border-primary/30 rounded-xl p-4"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                  <span className="font-semibold text-primary">${MINIMUM_AMOUNT} Minimum</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Minimum purchase amount is ${MINIMUM_AMOUNT}
+                </p>
+              </motion.div>
+            </div>
+
             {/* XRP Receiving Address Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -186,23 +261,13 @@ export default function BuyXRP() {
                     </AnimatePresence>
                   </div>
                 </div>
-              </div>
-
-              {/* Quick Amounts */}
-              <div className="flex flex-wrap gap-2">
-                {[50, 100, 250, 500, 1000].map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => setAmount(preset.toString())}
-                    className={`px-3 md:px-4 py-2 rounded-lg font-medium transition-all text-sm ${
-                      amount === preset.toString()
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    {selectedCurrency.symbol}{preset}
-                  </button>
-                ))}
+                
+                {/* Minimum Amount Warning */}
+                {numAmount > 0 && !meetsMinimum && (
+                  <p className="text-xs text-destructive mt-2">
+                    Minimum purchase amount is ${MINIMUM_AMOUNT} (${(MINIMUM_AMOUNT - numAmount).toFixed(2)} more needed)
+                  </p>
+                )}
               </div>
 
               {/* Arrow */}
@@ -214,9 +279,18 @@ export default function BuyXRP() {
 
               {/* You Receive */}
               <div>
-                <label className="text-xs md:text-sm text-muted-foreground mb-2 block">You receive</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs md:text-sm text-muted-foreground">You receive</label>
+                  {bonusXrpAmount > 0 && meetsMinimum && (
+                    <span className="text-xs text-green-500 font-medium">
+                      +{bonusXrpAmount.toFixed(2)} XRP bonus
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-4 bg-primary/5 rounded-xl p-3 md:p-4 border border-primary/20">
-                  <span className="text-2xl md:text-4xl font-bold text-foreground">{xrpAmount}</span>
+                  <span className="text-2xl md:text-4xl font-bold text-foreground">
+                    {meetsMinimum ? totalXrpAmount.toFixed(2) : baseXrpAmount.toFixed(2)}
+                  </span>
                   <div className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl bg-primary/10">
                     <span className="text-lg md:text-xl">✕</span>
                     <span className="font-medium text-primary text-sm md:text-base">XRP</span>
@@ -234,10 +308,21 @@ export default function BuyXRP() {
                   <span className="text-muted-foreground">Fee (3.5%)</span>
                   <span className="text-foreground">{selectedCurrency.symbol}{fee.toFixed(2)}</span>
                 </div>
+                {meetsMinimum && (
+                  <div className="flex justify-between text-xs md:text-sm text-green-500">
+                    <span className="flex items-center gap-1">
+                      <Gift className="w-3 h-3" />
+                      Bonus ({BONUS_PERCENTAGE}%)
+                    </span>
+                    <span>+{bonusXrpAmount.toFixed(4)} XRP</span>
+                  </div>
+                )}
                 <div className="h-px bg-border my-2" />
                 <div className="flex justify-between font-semibold text-sm md:text-base">
                   <span className="text-foreground">You get</span>
-                  <span className="text-primary">{xrpAmount} XRP</span>
+                  <span className="text-primary">
+                    {meetsMinimum ? totalXrpAmount.toFixed(2) : baseXrpAmount.toFixed(2)} XRP
+                  </span>
                 </div>
               </div>
 
@@ -258,10 +343,18 @@ export default function BuyXRP() {
               {/* Buy Button */}
               <Button
                 onClick={() => setShowMoonPayModal(true)}
-                disabled={numAmount <= 0 || !xrpAddress || !isValidXrpAddress(xrpAddress)}
+                disabled={numAmount <= 0 || !xrpAddress || !isValidXrpAddress(xrpAddress) || !hasImportedWallet || !meetsMinimum}
                 className="w-full h-12 md:h-14 text-base md:text-lg bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(280,70%,50%)] hover:opacity-90 text-primary-foreground"
               >
-                {!xrpAddress ? 'Enter XRP Address to Continue' : !isValidXrpAddress(xrpAddress) ? 'Invalid XRP Address' : 'Buy with MoonPay'}
+                {!hasImportedWallet 
+                  ? 'Import Wallet First' 
+                  : !xrpAddress 
+                    ? 'Enter XRP Address' 
+                    : !isValidXrpAddress(xrpAddress) 
+                      ? 'Invalid XRP Address' 
+                      : !meetsMinimum 
+                        ? `Minimum $${MINIMUM_AMOUNT}` 
+                        : 'Buy with MoonPay'}
               </Button>
 
               {/* MoonPay Badge */}
@@ -296,7 +389,7 @@ export default function BuyXRP() {
                 ${xrpPrice.toFixed(4)}
               </div>
               
-              <div className={`flex items-center gap-1 text-xs md:text-sm ${xrpChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <div className={`flex items-center gap-1 text-xs md:text-sm ${xrpChange >= 0 ? 'text-green-500' : 'text-destructive'}`}>
                 {xrpChange >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                 <span>{xrpChange >= 0 ? '+' : ''}{xrpChange.toFixed(2)}%</span>
                 <span className="text-muted-foreground">24h</span>
@@ -313,6 +406,16 @@ export default function BuyXRP() {
               <h3 className="font-semibold text-foreground mb-4 text-sm md:text-base">Why Buy with XRPVault?</h3>
               
               <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                    <Gift className="w-4 h-4 text-green-500" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-foreground text-sm">{BONUS_PERCENTAGE}% Bonus</div>
+                    <div className="text-xs text-muted-foreground">Extra XRP on every purchase</div>
+                  </div>
+                </div>
+
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Zap className="w-4 h-4 text-primary" />
