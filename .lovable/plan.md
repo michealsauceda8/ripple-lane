@@ -1,139 +1,173 @@
 
-# Production-Ready Feature Implementation Plan
+# Fix Promotional Banner and Quick Actions Card
 
 ## Overview
-This plan addresses three main areas:
-1. **Promotional Popup Banner** - Eye-catching modal that appears on site open and after login
-2. **Dark/Light Theme Mode** - Make the existing theme toggle functional
-3. **Bug Fixes & Incomplete Implementations** - Address console errors and polish remaining features
+This plan addresses four issues:
+1. Quick Actions card styling in dark mode
+2. Promotional banner z-index conflict with sticky navigation
+3. Promotional banner should trigger on dashboard entry
+4. Make the promotional banner slightly larger while remaining responsive
 
 ---
 
-## 1. Promotional Popup Banner
+## Issue 1: Quick Actions Dark Mode Styling
 
-### Design Concept
-A visually striking, animated modal with the XRP theme that highlights the 35% bonus offer. It will feature:
-- Gradient background with animated glow effects
-- XRP coin animation/floating effect
-- Bold headline with the bonus percentage
-- Clear call-to-action buttons
-- Dismissible with "Don't show again" option using localStorage
+**Problem**: The quick actions card uses `glass-card` class which has a light background that doesn't adapt well to dark mode.
 
-### Trigger Conditions
-- **On Site Open**: Shows once per session when landing on the homepage
-- **After Login**: Shows immediately after successful authentication
-- **After Registration**: Shows after new account creation
+**Solution**: Replace `glass-card` with `glass-card dark:glass-card-dark` or create a theme-aware card style.
 
-### Component Structure
-```text
-src/components/promotional/
-  BonusBanner.tsx      # Main promotional modal component
+**File**: `src/pages/Dashboard.tsx`
+
+**Change**:
+```tsx
+// Line 36: Update the Quick Actions card class
+// FROM:
+<div className="glass-card p-6">
+
+// TO:
+<div className="glass-card dark:bg-card dark:border-border p-6">
 ```
 
-### Key Features
-- Animated entrance with scale and fade effects using Framer Motion
-- Gradient background matching XRP branding (blue to purple gradient)
-- "35% BONUS" displayed prominently with glow effect
-- Quick action buttons: "Buy XRP" and "Swap Now"
-- Close button with option to dismiss permanently
-- Mobile-responsive design
-- Follows existing glass-card-dark styling
+---
 
-### Copy/Messaging
-**Headline**: "Maximize Your XRP"
-**Subheadline**: "Earn 35% Extra on Every Transaction"
-**Body**: "For a limited time, get 35% bonus XRP on all purchases and swaps. The more you trade, the more you earn."
-**CTA Primary**: "Start Earning Now"
-**CTA Secondary**: "Learn More"
+## Issue 2: Z-Index Clash - Banner Under Navigation
+
+**Problem**: 
+- Landing page header (`Header.tsx`) uses `z-50`
+- BonusBanner backdrop and modal also use `z-50`
+- This causes the banner to appear at the same level or under the nav
+
+**Solution**: Increase the BonusBanner z-index to `z-[60]` (higher than 50) so it appears above everything.
+
+**File**: `src/components/promotional/BonusBanner.tsx`
+
+**Changes**:
+```tsx
+// Line 68: Update backdrop z-index
+// FROM:
+className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+
+// TO:
+className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
+
+// Line 77: Update modal container z-index
+// FROM:
+className="fixed inset-0 z-50 flex items-center justify-center p-4"
+
+// TO:
+className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+```
 
 ---
 
-## 2. Dark/Light Theme Mode
+## Issue 3: Show Banner on Dashboard Entry
 
-### Current State
-- The project has `next-themes` installed but not configured
-- Dark mode CSS variables exist in `index.css` (lines 80-110)
-- Settings page has theme toggle UI but it only updates local state
+**Problem**: Banner only triggers on session start (homepage) or auth (login/register), not when user navigates to dashboard.
 
-### Implementation Steps
+**Solution**: 
+1. Add a new trigger type `"dashboard"` to the BonusBanner component
+2. Add BonusBanner to the DashboardLayout with the dashboard trigger
+3. Use sessionStorage with a dashboard-specific key so it shows once per session when entering dashboard
 
-1. **Add ThemeProvider to App.tsx**
-   - Wrap the application with `ThemeProvider` from next-themes
-   - Set default theme to "dark" (matching current XRP branding)
-   - Enable system theme detection
+**File 1**: `src/components/promotional/BonusBanner.tsx`
 
-2. **Update Settings Page**
-   - Connect theme toggle to next-themes `useTheme` hook
-   - Persist theme choice across sessions
+**Changes**:
+```tsx
+// Update interface to include 'dashboard' trigger
+interface BonusBannerProps {
+  trigger?: 'session' | 'auth' | 'dashboard';
+}
 
-3. **Add Theme Toggle to Dashboard Header**
-   - Small icon button for quick theme switching
+// Add DASHBOARD_KEY constant
+const DASHBOARD_KEY = 'xrpvault_bonus_banner_dashboard';
+
+// Update useEffect to handle 'dashboard' trigger
+if (trigger === 'dashboard') {
+  const dashboardShown = sessionStorage.getItem(DASHBOARD_KEY);
+  if (dashboardShown) return;
+  
+  const timer = setTimeout(() => {
+    setIsOpen(true);
+    sessionStorage.setItem(DASHBOARD_KEY, 'true');
+  }, 800);
+  
+  return () => clearTimeout(timer);
+}
+```
+
+**File 2**: `src/components/dashboard/DashboardLayout.tsx`
+
+**Changes**:
+```tsx
+// Import BonusBanner
+import BonusBanner from '@/components/promotional/BonusBanner';
+
+// Add BonusBanner inside the component return, before the closing div
+<BonusBanner trigger="dashboard" />
+```
 
 ---
 
-## 3. Bug Fixes & Incomplete Implementations
+## Issue 4: Make Banner Larger but Responsive
 
-### A. Edge Function Deployment Issue
-**Problem**: Console shows "Failed to send a request to the Edge Function" for price fetching
-**Solution**: The edge function exists but may not be deployed. Will ensure it's properly configured and add better error handling with retry logic.
+**Problem**: Current banner has `max-w-md` (28rem / 448px) which feels small.
 
-### B. Dashboard KYC Badge
-**Problem**: Always shows "KYC Pending" regardless of actual status
-**Solution**: Connect badge to actual KYC status from database
+**Solution**: Increase to `max-w-lg` (32rem / 512px) or `max-w-xl` (36rem / 576px) and adjust padding.
 
-### C. Stablecoin Price Support
-**Problem**: USDT, USDC, BUSD prices not included in edge function
-**Solution**: Add stablecoin support with $1.00 default values
+**File**: `src/components/promotional/BonusBanner.tsx`
+
+**Changes**:
+```tsx
+// Line 79: Increase max-width
+// FROM:
+<div className="relative w-full max-w-md overflow-hidden rounded-3xl">
+
+// TO:
+<div className="relative w-full max-w-lg sm:max-w-xl overflow-hidden rounded-3xl">
+
+// Line 84: Increase padding
+// FROM:
+<div className="relative m-[2px] rounded-[22px] bg-gradient-to-b from-[hsl(210,50%,12%)] to-[hsl(210,60%,8%)] p-6 sm:p-8">
+
+// TO:
+<div className="relative m-[2px] rounded-[22px] bg-gradient-to-b from-[hsl(210,50%,12%)] to-[hsl(210,60%,8%)] p-6 sm:p-10">
+
+// Increase icon size (line 123)
+// FROM:
+className="mx-auto w-20 h-20 rounded-2xl..."
+
+// TO:
+className="mx-auto w-20 h-20 sm:w-24 sm:h-24 rounded-2xl..."
+
+// Increase headline size (line 146)
+// FROM:
+className="text-3xl sm:text-4xl font-bold text-white mb-2"
+
+// TO:
+className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3"
+
+// Increase bonus text size (line 158-159)
+// FROM:
+className="text-5xl sm:text-6xl font-extrabold..."
+
+// TO:
+className="text-5xl sm:text-6xl md:text-7xl font-extrabold..."
+```
 
 ---
 
-## Technical Implementation Details
+## Summary of Files to Modify
 
-### Files to Create
-| File | Purpose |
-|------|---------|
-| `src/components/promotional/BonusBanner.tsx` | Main promotional popup component |
-
-### Files to Modify
 | File | Changes |
 |------|---------|
-| `src/App.tsx` | Wrap with ThemeProvider |
-| `src/pages/Index.tsx` | Add BonusBanner trigger on page load |
-| `src/pages/Login.tsx` | Trigger BonusBanner after successful login |
-| `src/pages/Register.tsx` | Trigger BonusBanner after successful registration |
-| `src/pages/Settings.tsx` | Connect theme toggle to next-themes |
-| `src/components/dashboard/DashboardLayout.tsx` | Add real KYC status badge + optional theme toggle |
-| `supabase/functions/get-xrp-price/index.ts` | Add stablecoin prices |
-
-### BonusBanner Component Design
-The banner will feature:
-- Backdrop blur overlay
-- Centered modal with max-width 480px
-- Animated XRP logo at top
-- Gradient accent border
-- Confetti/sparkle animation on open
-- Smooth exit animation
-
-### localStorage Keys for Banner
-- `xrpvault_bonus_banner_dismissed`: boolean - User permanently dismissed
-- `xrpvault_bonus_banner_session`: string - Session timestamp to show once per session
-
----
-
-## Implementation Order
-
-1. **Create BonusBanner component** with all styling and animations
-2. **Add ThemeProvider** to App.tsx for theme mode support
-3. **Integrate BonusBanner** into Index, Login, and Register pages
-4. **Fix Settings theme toggle** to use next-themes
-5. **Update DashboardLayout** with real KYC status
-6. **Deploy edge function** and verify price fetching works
-7. **Test complete flow** - site open, login, registration triggers
+| `src/pages/Dashboard.tsx` | Add dark mode background to Quick Actions card |
+| `src/components/promotional/BonusBanner.tsx` | Increase z-index to z-[60], add 'dashboard' trigger, make banner larger |
+| `src/components/dashboard/DashboardLayout.tsx` | Import and render BonusBanner with dashboard trigger |
 
 ---
 
 ## Expected Outcome
-- Beautiful promotional banner appears on first visit and after authentication
-- Theme toggle works throughout the application
-- All console errors resolved
-- Production-ready polish on all features
+- Quick Actions card will have proper dark background in dark mode
+- Promotional banner will always appear above the navigation bar
+- Banner will display once per session when user enters dashboard
+- Banner will be noticeably larger while remaining fully responsive on mobile
