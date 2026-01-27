@@ -63,12 +63,12 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           >
-            <div className="relative w-full max-w-lg sm:max-w-xl overflow-hidden rounded-3xl">
+            <div className="relative w-full max-w-sm sm:max-w-md overflow-hidden rounded-3xl">
               {/* Gradient Border Effect */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary via-accent to-primary rounded-3xl animate-pulse" />
               
               {/* Content Container */}
-              <div className="relative m-[2px] rounded-[22px] bg-gradient-to-b from-[hsl(210,50%,12%)] to-[hsl(210,60%,8%)] p-6 sm:p-10">
+              <div className="relative m-[2px] rounded-[22px] bg-gradient-to-b from-[hsl(210,50%,12%)] to-[hsl(210,60%,8%)] p-5 sm:p-8">
                 {/* Close Button */}
                 <button
                   onClick={handleClose}
@@ -107,10 +107,10 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: 'spring' }}
-                  className="mx-auto w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-6 shadow-lg"
+                  className="mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-5 shadow-lg"
                   style={{ boxShadow: '0 0 40px hsl(204 100% 57% / 0.4)' }}
                 >
-                  <Gift className="w-10 h-10 text-white" />
+                  <Gift className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                 </motion.div>
 
                 {/* Content */}
@@ -130,7 +130,7 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
-                    className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3"
+                    className="text-2xl sm:text-3xl font-bold text-white mb-2"
                     style={{ fontFamily: 'Space Grotesk, sans-serif' }}
                   >
                     Maximize Your XRP
@@ -143,7 +143,7 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
                     className="inline-block mb-4"
                   >
                     <span 
-                      className="text-5xl sm:text-6xl md:text-7xl font-extrabold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent"
+                      className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent"
                       style={{ 
                         fontFamily: 'Space Grotesk, sans-serif',
                         textShadow: '0 0 60px hsl(204 100% 57% / 0.5)'
@@ -157,7 +157,7 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
-                    className="text-white/60 text-base sm:text-lg mb-6 leading-relaxed"
+                    className="text-white/60 text-sm sm:text-base mb-5 leading-relaxed"
                   >
                     Earn <span className="text-primary font-semibold">35% extra XRP</span> on all purchases and swaps. 
                     The more you trade, the more you earn!
@@ -172,7 +172,7 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
                   >
                     <Button
                       onClick={() => handleNavigate('/dashboard/buy')}
-                      className="w-full btn-xrp-primary py-6 text-lg group"
+                      className="w-full btn-xrp-primary py-4 sm:py-5 text-base group"
                     >
                       Start Earning Now
                       <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -181,7 +181,7 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
                     <Button
                       onClick={() => handleNavigate('/dashboard/swap')}
                       variant="outline"
-                      className="w-full py-5 border-white/20 text-white hover:bg-white/10"
+                      className="w-full py-3 sm:py-4 border-white/20 text-white hover:bg-white/10 text-sm sm:text-base"
                     >
                       Swap to XRP
                     </Button>
