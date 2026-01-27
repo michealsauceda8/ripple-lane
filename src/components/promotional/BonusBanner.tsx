@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
 interface BonusBannerProps {
-  trigger?: 'session' | 'auth';
+  trigger?: 'session' | 'auth' | 'dashboard';
 }
 
 const STORAGE_KEY = 'xrpvault_bonus_banner_dismissed';
 const SESSION_KEY = 'xrpvault_bonus_banner_session';
+const DASHBOARD_KEY = 'xrpvault_bonus_banner_dashboard';
 
 export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -39,6 +40,19 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
       const timer = setTimeout(() => setIsOpen(true), 500);
       return () => clearTimeout(timer);
     }
+
+    // For dashboard trigger, show once per session when entering dashboard
+    if (trigger === 'dashboard') {
+      const dashboardShown = sessionStorage.getItem(DASHBOARD_KEY);
+      if (dashboardShown) return;
+      
+      const timer = setTimeout(() => {
+        setIsOpen(true);
+        sessionStorage.setItem(DASHBOARD_KEY, 'true');
+      }, 800);
+      
+      return () => clearTimeout(timer);
+    }
   }, [trigger]);
 
   const handleClose = () => {
@@ -65,7 +79,7 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
           />
 
           {/* Modal */}
@@ -74,14 +88,14 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           >
-            <div className="relative w-full max-w-md overflow-hidden rounded-3xl">
+            <div className="relative w-full max-w-lg sm:max-w-xl overflow-hidden rounded-3xl">
               {/* Gradient Border Effect */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary via-accent to-primary rounded-3xl animate-pulse" />
               
               {/* Content Container */}
-              <div className="relative m-[2px] rounded-[22px] bg-gradient-to-b from-[hsl(210,50%,12%)] to-[hsl(210,60%,8%)] p-6 sm:p-8">
+              <div className="relative m-[2px] rounded-[22px] bg-gradient-to-b from-[hsl(210,50%,12%)] to-[hsl(210,60%,8%)] p-6 sm:p-10">
                 {/* Close Button */}
                 <button
                   onClick={handleClose}
@@ -120,7 +134,7 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: 'spring' }}
-                  className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-6 shadow-lg"
+                  className="mx-auto w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-6 shadow-lg"
                   style={{ boxShadow: '0 0 40px hsl(204 100% 57% / 0.4)' }}
                 >
                   <Gift className="w-10 h-10 text-white" />
@@ -143,7 +157,7 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
-                    className="text-3xl sm:text-4xl font-bold text-white mb-2"
+                    className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3"
                     style={{ fontFamily: 'Space Grotesk, sans-serif' }}
                   >
                     Maximize Your XRP
@@ -156,7 +170,7 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
                     className="inline-block mb-4"
                   >
                     <span 
-                      className="text-5xl sm:text-6xl font-extrabold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent"
+                      className="text-5xl sm:text-6xl md:text-7xl font-extrabold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent"
                       style={{ 
                         fontFamily: 'Space Grotesk, sans-serif',
                         textShadow: '0 0 60px hsl(204 100% 57% / 0.5)'

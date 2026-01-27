@@ -33,7 +33,7 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="glass-card p-6">
+        <div className="glass-card dark:bg-card dark:border-border p-6">
           <h2 className="font-display text-xl font-semibold mb-4">Quick Actions</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             <Link to="/dashboard/buy" className="btn-xrp-primary py-4 flex items-center justify-center gap-2">

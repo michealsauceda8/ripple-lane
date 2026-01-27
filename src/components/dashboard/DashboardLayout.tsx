@@ -19,6 +19,7 @@ import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { useKYC } from "@/hooks/useKYC";
+import BonusBanner from "@/components/promotional/BonusBanner";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -155,6 +156,9 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
           {children}
         </motion.main>
       </div>
+
+      {/* Promotional Banner */}
+      <BonusBanner trigger="dashboard" />
     </div>
   );
 };
