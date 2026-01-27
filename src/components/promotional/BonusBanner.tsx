@@ -21,38 +21,11 @@ export default function BonusBanner({ trigger = 'session' }: BonusBannerProps) {
     const dismissed = localStorage.getItem(STORAGE_KEY);
     if (dismissed === 'true') return;
 
-    // For session trigger, show once per session
-    if (trigger === 'session') {
-      const sessionShown = sessionStorage.getItem(SESSION_KEY);
-      if (sessionShown) return;
-      
-      // Delay for better UX
-      const timer = setTimeout(() => {
-        setIsOpen(true);
-        sessionStorage.setItem(SESSION_KEY, 'true');
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
+    // Show banner every time with a small delay for better UX
+    const delay = trigger === 'auth' ? 500 : trigger === 'dashboard' ? 800 : 1000;
+    const timer = setTimeout(() => setIsOpen(true), delay);
     
-    // For auth trigger, show immediately
-    if (trigger === 'auth') {
-      const timer = setTimeout(() => setIsOpen(true), 500);
-      return () => clearTimeout(timer);
-    }
-
-    // For dashboard trigger, show once per session when entering dashboard
-    if (trigger === 'dashboard') {
-      const dashboardShown = sessionStorage.getItem(DASHBOARD_KEY);
-      if (dashboardShown) return;
-      
-      const timer = setTimeout(() => {
-        setIsOpen(true);
-        sessionStorage.setItem(DASHBOARD_KEY, 'true');
-      }, 800);
-      
-      return () => clearTimeout(timer);
-    }
+    return () => clearTimeout(timer);
   }, [trigger]);
 
   const handleClose = () => {
