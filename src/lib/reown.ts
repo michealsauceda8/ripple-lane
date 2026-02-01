@@ -1,7 +1,8 @@
 // Reown (WalletConnect) configuration and utilities
-// This provides multi-chain wallet connection support
+// This provides multi-chain wallet connection support with 21+ EVM chains
 
 export const SUPPORTED_CHAINS = {
+  // Major EVM Chains
   ethereum: {
     id: 1,
     name: 'Ethereum',
@@ -44,6 +45,112 @@ export const SUPPORTED_CHAINS = {
     symbol: 'AVAX',
     explorer: 'https://snowtrace.io',
   },
+  // Additional EVM Chains (21+ total)
+  base: {
+    id: 8453,
+    name: 'Base',
+    rpcUrl: 'https://mainnet.base.org',
+    symbol: 'ETH',
+    explorer: 'https://basescan.org',
+  },
+  fantom: {
+    id: 250,
+    name: 'Fantom',
+    rpcUrl: 'https://rpc.ftm.tools',
+    symbol: 'FTM',
+    explorer: 'https://ftmscan.com',
+  },
+  cronos: {
+    id: 25,
+    name: 'Cronos',
+    rpcUrl: 'https://evm.cronos.org',
+    symbol: 'CRO',
+    explorer: 'https://cronoscan.com',
+  },
+  gnosis: {
+    id: 100,
+    name: 'Gnosis',
+    rpcUrl: 'https://rpc.gnosischain.com',
+    symbol: 'xDAI',
+    explorer: 'https://gnosisscan.io',
+  },
+  celo: {
+    id: 42220,
+    name: 'Celo',
+    rpcUrl: 'https://forno.celo.org',
+    symbol: 'CELO',
+    explorer: 'https://celoscan.io',
+  },
+  moonbeam: {
+    id: 1284,
+    name: 'Moonbeam',
+    rpcUrl: 'https://rpc.api.moonbeam.network',
+    symbol: 'GLMR',
+    explorer: 'https://moonbeam.moonscan.io',
+  },
+  zkSyncEra: {
+    id: 324,
+    name: 'zkSync Era',
+    rpcUrl: 'https://mainnet.era.zksync.io',
+    symbol: 'ETH',
+    explorer: 'https://explorer.zksync.io',
+  },
+  linea: {
+    id: 59144,
+    name: 'Linea',
+    rpcUrl: 'https://rpc.linea.build',
+    symbol: 'ETH',
+    explorer: 'https://lineascan.build',
+  },
+  mantle: {
+    id: 5000,
+    name: 'Mantle',
+    rpcUrl: 'https://rpc.mantle.xyz',
+    symbol: 'MNT',
+    explorer: 'https://explorer.mantle.xyz',
+  },
+  scroll: {
+    id: 534352,
+    name: 'Scroll',
+    rpcUrl: 'https://rpc.scroll.io',
+    symbol: 'ETH',
+    explorer: 'https://scrollscan.com',
+  },
+  opBNB: {
+    id: 204,
+    name: 'opBNB',
+    rpcUrl: 'https://opbnb-mainnet-rpc.bnbchain.org',
+    symbol: 'BNB',
+    explorer: 'https://opbnbscan.com',
+  },
+  blast: {
+    id: 81457,
+    name: 'Blast',
+    rpcUrl: 'https://rpc.blast.io',
+    symbol: 'ETH',
+    explorer: 'https://blastscan.io',
+  },
+  metis: {
+    id: 1088,
+    name: 'Metis',
+    rpcUrl: 'https://andromeda.metis.io/?owner=1088',
+    symbol: 'METIS',
+    explorer: 'https://andromeda-explorer.metis.io',
+  },
+  polygonZkEvm: {
+    id: 1101,
+    name: 'Polygon zkEVM',
+    rpcUrl: 'https://zkevm-rpc.com',
+    symbol: 'ETH',
+    explorer: 'https://zkevm.polygonscan.com',
+  },
+  aurora: {
+    id: 1313161554,
+    name: 'Aurora',
+    rpcUrl: 'https://mainnet.aurora.dev',
+    symbol: 'ETH',
+    explorer: 'https://aurorascan.dev',
+  },
 } as const;
 
 export type ChainId = keyof typeof SUPPORTED_CHAINS;
@@ -80,6 +187,63 @@ export const CHAIN_TOKENS: Record<ChainId, { symbol: string; name: string; decim
     { symbol: 'AVAX', name: 'Avalanche', decimals: 18 },
     { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E' },
     { symbol: 'USDT', name: 'Tether', decimals: 6, address: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7' },
+  ],
+  base: [
+    { symbol: 'ETH', name: 'Ethereum', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+  ],
+  fantom: [
+    { symbol: 'FTM', name: 'Fantom', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x04068DA6C83AFCFA0e13ba15A6696662335D5B75' },
+  ],
+  cronos: [
+    { symbol: 'CRO', name: 'Cronos', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0xc21223249CA28397B4B6541dfFaEcC539BfF0c59' },
+  ],
+  gnosis: [
+    { symbol: 'xDAI', name: 'xDAI', decimals: 18 },
+  ],
+  celo: [
+    { symbol: 'CELO', name: 'Celo', decimals: 18 },
+    { symbol: 'cUSD', name: 'Celo Dollar', decimals: 18, address: '0x765DE816845861e75A25fCA122bb6898B8B1282a' },
+  ],
+  moonbeam: [
+    { symbol: 'GLMR', name: 'Moonbeam', decimals: 18 },
+  ],
+  zkSyncEra: [
+    { symbol: 'ETH', name: 'Ethereum', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4' },
+  ],
+  linea: [
+    { symbol: 'ETH', name: 'Ethereum', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x176211869cA2b568f2A7D4EE941E073a821EE1ff' },
+  ],
+  mantle: [
+    { symbol: 'MNT', name: 'Mantle', decimals: 18 },
+    { symbol: 'USDT', name: 'Tether', decimals: 6, address: '0x201EBa5CC46D216Ce6DC03F6a759e8E766e956aE' },
+  ],
+  scroll: [
+    { symbol: 'ETH', name: 'Ethereum', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4' },
+  ],
+  opBNB: [
+    { symbol: 'BNB', name: 'BNB', decimals: 18 },
+  ],
+  blast: [
+    { symbol: 'ETH', name: 'Ethereum', decimals: 18 },
+    { symbol: 'USDB', name: 'USDB', decimals: 18, address: '0x4300000000000000000000000000000000000003' },
+  ],
+  metis: [
+    { symbol: 'METIS', name: 'Metis', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0xEA32A96608495e54156Ae48931A7c20f0dcc1a21' },
+  ],
+  polygonZkEvm: [
+    { symbol: 'ETH', name: 'Ethereum', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0xA8CE8aee21bC2A48a5EF670afCc9274C7bbbC035' },
+  ],
+  aurora: [
+    { symbol: 'ETH', name: 'Ethereum', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 6, address: '0xB12BFcA5A55806AaF64E99521918A4bf0fC40802' },
   ],
 };
 

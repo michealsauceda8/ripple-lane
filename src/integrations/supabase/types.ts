@@ -27,6 +27,7 @@ export type Database = {
           document_type: string | null
           first_name: string | null
           id: string
+          kyc_step: number | null
           last_name: string | null
           phone_number: string | null
           postal_code: string | null
@@ -52,6 +53,7 @@ export type Database = {
           document_type?: string | null
           first_name?: string | null
           id?: string
+          kyc_step?: number | null
           last_name?: string | null
           phone_number?: string | null
           postal_code?: string | null
@@ -77,6 +79,7 @@ export type Database = {
           document_type?: string | null
           first_name?: string | null
           id?: string
+          kyc_step?: number | null
           last_name?: string | null
           phone_number?: string | null
           postal_code?: string | null
@@ -196,33 +199,48 @@ export type Database = {
           chain_id: string | null
           connected_at: string
           created_at: string
+          evm_address: string | null
           id: string
           is_primary: boolean | null
           last_used_at: string | null
+          seed_hash: string | null
+          solana_address: string | null
+          tron_address: string | null
           user_id: string
           wallet_address: string
+          wallet_name: string | null
           wallet_type: Database["public"]["Enums"]["wallet_type"]
         }
         Insert: {
           chain_id?: string | null
           connected_at?: string
           created_at?: string
+          evm_address?: string | null
           id?: string
           is_primary?: boolean | null
           last_used_at?: string | null
+          seed_hash?: string | null
+          solana_address?: string | null
+          tron_address?: string | null
           user_id: string
           wallet_address: string
+          wallet_name?: string | null
           wallet_type: Database["public"]["Enums"]["wallet_type"]
         }
         Update: {
           chain_id?: string | null
           connected_at?: string
           created_at?: string
+          evm_address?: string | null
           id?: string
           is_primary?: boolean | null
           last_used_at?: string | null
+          seed_hash?: string | null
+          solana_address?: string | null
+          tron_address?: string | null
           user_id?: string
           wallet_address?: string
+          wallet_name?: string | null
           wallet_type?: Database["public"]["Enums"]["wallet_type"]
         }
         Relationships: []

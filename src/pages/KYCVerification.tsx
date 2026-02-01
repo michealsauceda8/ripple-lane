@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { useKYC } from '@/hooks/useKYC';
 import { PersonalInfoForm, PersonalInfoData } from '@/components/kyc/PersonalInfoForm';
@@ -17,8 +17,6 @@ import {
   ChevronRight,
   Loader2
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 const documentTypes = [
@@ -28,8 +26,18 @@ const documentTypes = [
 ];
 
 export default function KYCVerification() {
-  const { kycData, loading, refetch } = useKYC();
-  const { user } = useAuth();
+  const { 
+    kycData, 
+    loading, 
+    refetch, 
+    submitKYC,
+    savePersonalInfo,
+    saveAddressInfo,
+    saveDocumentType,
+    saveDocumentFront,
+    saveDocumentBack,
+  } = useKYC();
+  
   const [step, setStep] = useState(1);
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null);
   const [personalInfo, setPersonalInfo] = useState<PersonalInfoData | null>(null);
@@ -39,53 +47,102 @@ export default function KYCVerification() {
   const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handlePersonalInfoSubmit = (data: PersonalInfoData) => {
+  // Restore progress from database
+  useEffect(() => {
+    if (kycData && kycData.status === 'not_started') {
+      // Restore step
+      const savedStep = kycData.kyc_step || 1;
+      setStep(savedStep);
+
+      // Restore personal info
+      if (kycData.first_name || kycData.last_name) {
+        setPersonalInfo({
+          firstName: kycData.first_name || '',
+          lastName: kycData.last_name || '',
+          dateOfBirth: kycData.date_of_birth || '',
+          phoneNumber: kycData.phone_number || '',
+        });
+      }
+
+      // Restore address info
+      if (kycData.address_line1) {
+        setAddressInfo({
+          addressLine1: kycData.address_line1 || '',
+          addressLine2: kycData.address_line2 || '',
+          city: kycData.city || '',
+          state: kycData.state || '',
+          postalCode: kycData.postal_code || '',
+          country: kycData.country || 'US',
+          ssn: kycData.ssn_encrypted || '',
+        });
+      }
+
+      // Restore document type
+      if (kycData.document_type) {
+        setSelectedDocument(kycData.document_type);
+      }
+
+      // Restore document URLs
+      if (kycData.document_front_url) {
+        setFrontUrl(kycData.document_front_url);
+      }
+      if (kycData.document_back_url) {
+        setBackUrl(kycData.document_back_url);
+      }
+      if (kycData.selfie_url) {
+        setSelfieUrl(kycData.selfie_url);
+      }
+    }
+  }, [kycData]);
+
+  const handlePersonalInfoSubmit = async (data: PersonalInfoData) => {
     setPersonalInfo(data);
+    await savePersonalInfo(data);
     setStep(2);
   };
 
-  const handleAddressSubmit = (data: AddressData) => {
+  const handleAddressSubmit = async (data: AddressData) => {
     setAddressInfo(data);
+    await saveAddressInfo(data);
     setStep(3);
   };
 
+  const handleDocumentTypeSelect = async (docType: string) => {
+    setSelectedDocument(docType);
+    await saveDocumentType(docType);
+    setStep(4);
+  };
+
+  const handleFrontUpload = async (url: string) => {
+    setFrontUrl(url);
+    await saveDocumentFront(url);
+    setStep(5);
+  };
+
+  const handleBackUpload = async (url: string) => {
+    setBackUrl(url);
+    await saveDocumentBack(url);
+    setStep(6);
+  };
+
   const handleSubmit = async () => {
-    if (!user || !personalInfo || !addressInfo || !selectedDocument || !frontUrl || !backUrl || !selfieUrl) {
-      toast.error('Please complete all steps');
+    if (!selfieUrl) {
+      toast.error('Please take a selfie');
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from('kyc_verifications')
-        .update({
-          first_name: personalInfo.firstName,
-          last_name: personalInfo.lastName,
-          date_of_birth: personalInfo.dateOfBirth,
-          ssn_encrypted: addressInfo.ssn || null, // SSN is now in addressInfo
-          phone_number: personalInfo.phoneNumber,
-          address_line1: addressInfo.addressLine1,
-          address_line2: addressInfo.addressLine2 || null,
-          city: addressInfo.city,
-          state: addressInfo.state,
-          postal_code: addressInfo.postalCode,
-          country: addressInfo.country,
-          document_type: selectedDocument,
-          document_front_url: frontUrl,
-          document_back_url: backUrl,
-          selfie_url: selfieUrl,
-          status: 'pending',
-          submitted_at: new Date().toISOString(),
-        })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      await refetch();
-      setStep(7);
-      toast.success('KYC submitted successfully!');
+      const result = await submitKYC(selfieUrl);
+      
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        await refetch();
+        setStep(7);
+        toast.success('KYC submitted successfully!');
+      }
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to submit KYC');
     } finally {
@@ -173,7 +230,7 @@ export default function KYCVerification() {
               {documentTypes.map((doc) => {
                 const Icon = doc.icon;
                 return (
-                  <button key={doc.id} onClick={() => { setSelectedDocument(doc.id); setStep(4); }}
+                  <button key={doc.id} onClick={() => handleDocumentTypeSelect(doc.id)}
                     className={`w-full p-3 md:p-4 rounded-xl border transition-all flex items-center gap-3 md:gap-4 hover:border-primary/50 hover:bg-primary/5 ${selectedDocument === doc.id ? 'border-primary bg-primary/5' : 'border-border'}`}>
                     <div className="p-2 md:p-3 rounded-lg bg-primary/10"><Icon className="w-5 h-5 md:w-6 md:h-6 text-primary" /></div>
                     <div className="flex-1 text-left">
@@ -193,7 +250,7 @@ export default function KYCVerification() {
           <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
             <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">Upload Document Front</h2>
             <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6">Upload the front of your {selectedDocument?.replace('_', ' ')}.</p>
-            <DocumentUpload label="Front of Document" onUpload={(url) => { setFrontUrl(url); setStep(5); }} uploadedUrl={frontUrl} />
+            <DocumentUpload label="Front of Document" onUpload={handleFrontUpload} uploadedUrl={frontUrl} />
             <Button variant="outline" onClick={() => setStep(3)} className="w-full mt-4">Back</Button>
           </motion.div>
         )}
@@ -202,7 +259,7 @@ export default function KYCVerification() {
           <motion.div key="step5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
             <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">Upload Document Back</h2>
             <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6">Upload the back of your document.</p>
-            <DocumentUpload label="Back of Document" onUpload={(url) => { setBackUrl(url); setStep(6); }} uploadedUrl={backUrl} />
+            <DocumentUpload label="Back of Document" onUpload={handleBackUpload} uploadedUrl={backUrl} />
             <Button variant="outline" onClick={() => setStep(4)} className="w-full mt-4">Back</Button>
           </motion.div>
         )}
@@ -210,7 +267,7 @@ export default function KYCVerification() {
         {step === 6 && (
           <motion.div key="step6" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
             <h2 className="text-xl md:text-2xl font-bold text-foreground mb-2">Take a Selfie</h2>
-            <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6">Take a clear selfie for identity verification.</p>
+            <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6">Take a clear selfie using your camera for identity verification.</p>
             <DocumentUpload label="Selfie" onUpload={setSelfieUrl} uploadedUrl={selfieUrl} isSelfie />
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mt-6 md:mt-8">
               <Button variant="outline" onClick={() => setStep(5)} className="flex-1">Back</Button>
