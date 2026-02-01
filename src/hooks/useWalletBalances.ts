@@ -25,9 +25,8 @@ export interface TokenBalance {
 }
 
 interface WalletBalances {
-  ethereum: TokenBalance[];
-  polygon: TokenBalance[];
-  bsc: TokenBalance[];
+  // Dynamic chain balances - one array per EVM chain
+  [key: string]: TokenBalance[] | number;
   solana: TokenBalance[];
   tron: TokenBalance[];
   bitcoin: TokenBalance[];
@@ -62,15 +61,21 @@ function getPriceUsd(prices: any, key: string): number {
 export function useWalletBalances() {
   const { prices } = usePrices();
   const walletStore = useWalletStore();
-  const [balances, setBalances] = useState<WalletBalances>({
-    ethereum: [],
-    polygon: [],
-    bsc: [],
+  
+  // Initialize balances with all chains from SUPPORTED_CHAINS
+  const initialBalances: WalletBalances = {
     solana: [],
     tron: [],
     bitcoin: [],
     total: 0,
+  };
+  
+  // Add all EVM chains dynamically
+  Object.keys(SUPPORTED_CHAINS).forEach(chainId => {
+    initialBalances[chainId] = [];
   });
+  
+  const [balances, setBalances] = useState<WalletBalances>(initialBalances);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,59 +84,68 @@ export function useWalletBalances() {
     setError(null);
 
     const newBalances: WalletBalances = {
-      ethereum: [],
-      polygon: [],
-      bsc: [],
       solana: [],
       tron: [],
       bitcoin: [],
       total: 0,
     };
+    
+    // Initialize all EVM chain arrays
+    Object.keys(SUPPORTED_CHAINS).forEach(chainId => {
+      newBalances[chainId] = [];
+    });
 
     try {
-      // Fetch EVM balances
+      // Fetch balances for ALL EVM chains (21+ chains)
       if (walletStore.evmAddress) {
         const evmAddress = walletStore.evmAddress;
+        const chainIds = Object.keys(SUPPORTED_CHAINS) as ChainId[];
 
-        // Ethereum, Polygon, BSC
-        for (const chain of ['ethereum', 'polygon', 'bsc'] as ChainId[]) {
-          const chainConfig = SUPPORTED_CHAINS[chain];
-          const chainTokens = CHAIN_TOKENS[chain];
+        // Fetch balances for each chain
+        for (const chainId of chainIds) {
+          const chainConfig = SUPPORTED_CHAINS[chainId];
+          const chainTokens = CHAIN_TOKENS[chainId];
+
+          if (!chainTokens) continue;
 
           for (const token of chainTokens) {
-            let balance = '0';
-            
-            if (token.address) {
-              // ERC-20 token
-              balance = await getTokenBalance(
-                token.address,
-                evmAddress,
-                chainConfig.rpcUrl,
-                token.decimals
-              );
-            } else {
-              // Native token
-              balance = await getNativeBalance(evmAddress, chainConfig.rpcUrl);
-            }
+            try {
+              let balance = '0';
+              
+              if (token.address) {
+                // ERC-20 token
+                balance = await getTokenBalance(
+                  token.address,
+                  evmAddress,
+                  chainConfig.rpcUrl,
+                  token.decimals
+                );
+              } else {
+                // Native token
+                balance = await getNativeBalance(evmAddress, chainConfig.rpcUrl);
+              }
 
-            const numBalance = parseFloat(balance);
-            if (numBalance > 0) {
-              const price = getPriceUsd(prices, token.symbol.toLowerCase());
-              const usdValue = numBalance * price;
+              const numBalance = parseFloat(balance);
+              if (numBalance > 0) {
+                const price = getPriceUsd(prices, token.symbol.toLowerCase());
+                const usdValue = numBalance * price;
 
-              newBalances[chain].push({
-                symbol: token.symbol,
-                name: token.name,
-                balance,
-                usdValue,
-                chain: chainConfig.name,
-                chainId: chain,
-                address: token.address,
-                decimals: token.decimals,
-                icon: TOKEN_ICONS[token.symbol],
-              });
+                (newBalances[chainId] as TokenBalance[]).push({
+                  symbol: token.symbol,
+                  name: token.name,
+                  balance,
+                  usdValue,
+                  chain: chainConfig.name,
+                  chainId: chainId,
+                  address: token.address,
+                  decimals: token.decimals,
+                  icon: TOKEN_ICONS[token.symbol],
+                });
 
-              newBalances.total += usdValue;
+                newBalances.total += usdValue;
+              }
+            } catch (tokenError) {
+              console.error(`Error fetching ${token.symbol} on ${chainId}:`, tokenError);
             }
           }
         }
@@ -223,15 +237,20 @@ export function useWalletBalances() {
     fetchBalances,
   ]);
 
-  // Get all tokens as a flat array
-  const allTokens = [
-    ...balances.ethereum,
-    ...balances.polygon,
-    ...balances.bsc,
+  // Get all tokens as a flat array from all chains
+  const allTokens: TokenBalance[] = [];
+  Object.keys(SUPPORTED_CHAINS).forEach(chainId => {
+    const chainBalances = balances[chainId];
+    if (Array.isArray(chainBalances)) {
+      allTokens.push(...chainBalances);
+    }
+  });
+  allTokens.push(
     ...balances.solana,
     ...balances.tron,
-    ...balances.bitcoin,
-  ].sort((a, b) => b.usdValue - a.usdValue);
+    ...balances.bitcoin
+  );
+  allTokens.sort((a, b) => b.usdValue - a.usdValue);
 
   return {
     balances,

@@ -7,6 +7,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useWalletStore } from '@/stores/walletStore';
 import { useWalletBalances, TokenBalance } from '@/hooks/useWalletBalances';
 import { usePrices } from '@/hooks/usePrices';
+import { SUPPORTED_CHAINS, CHAIN_TOKENS, ChainId } from '@/lib/reown';
 import { Button } from '@/components/ui/button';
 import { WalletConnectButton } from '@/components/wallet/WalletConnectButton';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,39 +27,127 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const chains = [
-  { id: 'ethereum', name: 'Ethereum', icon: '⟠', color: 'from-blue-500 to-purple-500' },
-  { id: 'bsc', name: 'BNB Chain', icon: '🔶', color: 'from-yellow-500 to-orange-500' },
-  { id: 'polygon', name: 'Polygon', icon: '🟣', color: 'from-purple-500 to-violet-500' },
+// Chain icons and colors for all 21+ EVM chains plus non-EVM
+const CHAIN_ICONS: Record<string, string> = {
+  ethereum: '⟠',
+  polygon: '🟣',
+  bsc: '🔶',
+  arbitrum: '🔷',
+  optimism: '🔴',
+  avalanche: '🔺',
+  base: '🔵',
+  fantom: '👻',
+  cronos: '💎',
+  gnosis: '🦉',
+  celo: '🌿',
+  moonbeam: '🌙',
+  zkSyncEra: '⚡',
+  linea: '🌊',
+  mantle: '🟢',
+  scroll: '📜',
+  opBNB: '🔶',
+  blast: '💥',
+  metis: '⬡',
+  polygonZkEvm: '🟣',
+  aurora: '🌌',
+  solana: '◎',
+  tron: '⚡',
+  bitcoin: '₿',
+};
+
+const CHAIN_COLORS: Record<string, string> = {
+  ethereum: 'from-blue-500 to-purple-500',
+  polygon: 'from-purple-500 to-violet-500',
+  bsc: 'from-yellow-500 to-orange-500',
+  arbitrum: 'from-blue-500 to-cyan-500',
+  optimism: 'from-red-500 to-rose-500',
+  avalanche: 'from-red-500 to-orange-500',
+  base: 'from-blue-600 to-blue-400',
+  fantom: 'from-blue-400 to-indigo-500',
+  cronos: 'from-blue-700 to-blue-500',
+  gnosis: 'from-green-500 to-teal-500',
+  celo: 'from-green-400 to-emerald-500',
+  moonbeam: 'from-purple-600 to-pink-500',
+  zkSyncEra: 'from-violet-500 to-purple-500',
+  linea: 'from-cyan-500 to-blue-500',
+  mantle: 'from-green-500 to-lime-500',
+  scroll: 'from-amber-500 to-yellow-500',
+  opBNB: 'from-yellow-500 to-amber-500',
+  blast: 'from-yellow-400 to-orange-500',
+  metis: 'from-cyan-500 to-teal-500',
+  polygonZkEvm: 'from-purple-500 to-violet-500',
+  aurora: 'from-green-500 to-cyan-500',
+  solana: 'from-green-400 to-purple-500',
+  tron: 'from-red-500 to-rose-500',
+  bitcoin: 'from-amber-500 to-yellow-500',
+};
+
+// Build chains array from SUPPORTED_CHAINS + non-EVM
+const evmChains = Object.entries(SUPPORTED_CHAINS).map(([id, config]) => ({
+  id,
+  name: config.name,
+  icon: CHAIN_ICONS[id] || '🔗',
+  color: CHAIN_COLORS[id] || 'from-gray-500 to-gray-600',
+}));
+
+const nonEvmChains = [
   { id: 'solana', name: 'Solana', icon: '◎', color: 'from-green-400 to-purple-500' },
   { id: 'tron', name: 'TRON', icon: '⚡', color: 'from-red-500 to-rose-500' },
   { id: 'bitcoin', name: 'Bitcoin', icon: '₿', color: 'from-amber-500 to-yellow-500' },
 ];
 
-const defaultTokens: Record<string, { symbol: string; name: string; icon: string; decimals: number }[]> = {
-  ethereum: [
-    { symbol: 'ETH', name: 'Ethereum', icon: '⟠', decimals: 18 },
-    { symbol: 'USDT', name: 'Tether', icon: '💵', decimals: 6 },
-    { symbol: 'USDC', name: 'USD Coin', icon: '🔵', decimals: 6 },
-  ],
-  bsc: [
-    { symbol: 'BNB', name: 'BNB', icon: '🔶', decimals: 18 },
-    { symbol: 'BUSD', name: 'Binance USD', icon: '💛', decimals: 18 },
-  ],
-  polygon: [
-    { symbol: 'MATIC', name: 'Polygon', icon: '🟣', decimals: 18 },
-    { symbol: 'USDC', name: 'USD Coin', icon: '🔵', decimals: 6 },
-  ],
-  solana: [
-    { symbol: 'SOL', name: 'Solana', icon: '◎', decimals: 9 },
-  ],
-  tron: [
-    { symbol: 'TRX', name: 'TRON', icon: '⚡', decimals: 6 },
-  ],
-  bitcoin: [
-    { symbol: 'BTC', name: 'Bitcoin', icon: '₿', decimals: 8 },
-  ],
+const allChains = [...evmChains, ...nonEvmChains];
+
+// Token icons
+const TOKEN_ICONS: Record<string, string> = {
+  ETH: '⟠',
+  MATIC: '🟣',
+  BNB: '🔶',
+  USDT: '💵',
+  USDC: '🔵',
+  WBTC: '₿',
+  BUSD: '💛',
+  AVAX: '🔺',
+  ARB: '🔷',
+  OP: '🔴',
+  FTM: '👻',
+  CRO: '💎',
+  xDAI: '🦉',
+  CELO: '🌿',
+  cUSD: '💵',
+  GLMR: '🌙',
+  MNT: '🟢',
+  USDB: '💵',
+  METIS: '⬡',
+  SOL: '◎',
+  TRX: '⚡',
+  BTC: '₿',
 };
+
+// Get tokens for a chain (handles both EVM and non-EVM)
+function getChainTokens(chainId: string): { symbol: string; name: string; icon: string; decimals: number }[] {
+  if (chainId === 'solana') {
+    return [{ symbol: 'SOL', name: 'Solana', icon: '◎', decimals: 9 }];
+  }
+  if (chainId === 'tron') {
+    return [{ symbol: 'TRX', name: 'TRON', icon: '⚡', decimals: 6 }];
+  }
+  if (chainId === 'bitcoin') {
+    return [{ symbol: 'BTC', name: 'Bitcoin', icon: '₿', decimals: 8 }];
+  }
+  
+  const chainTokens = CHAIN_TOKENS[chainId as ChainId];
+  if (chainTokens) {
+    return chainTokens.map(t => ({
+      symbol: t.symbol,
+      name: t.name,
+      icon: TOKEN_ICONS[t.symbol] || '🪙',
+      decimals: t.decimals,
+    }));
+  }
+  
+  return [];
+}
 
 const MINIMUM_AMOUNT = 2500;
 const BONUS_PERCENTAGE = 35;
@@ -70,8 +159,8 @@ export default function Swap() {
   const { allTokens, totalValue, loading: balancesLoading, refetch: refetchBalances } = useWalletBalances();
   const { prices } = usePrices();
   
-  const [sourceChain, setSourceChain] = useState(chains[0]);
-  const [sourceToken, setSourceToken] = useState<{ symbol: string; name: string; icon: string; balance?: string }>({ ...defaultTokens[chains[0].id][0] });
+  const [sourceChain, setSourceChain] = useState(allChains[0]);
+  const [sourceToken, setSourceToken] = useState<{ symbol: string; name: string; icon: string; balance?: string }>({ ...getChainTokens(allChains[0].id)[0] });
   const [amount, setAmount] = useState('');
   const [showSourceChainDropdown, setShowSourceChainDropdown] = useState(false);
   const [showSourceTokenDropdown, setShowSourceTokenDropdown] = useState(false);
@@ -113,7 +202,7 @@ export default function Swap() {
 
   const handleSelectWalletToken = (token: TokenBalance) => {
     // Find the chain
-    const chain = chains.find(c => c.name === token.chain || c.id === token.chainId);
+    const chain = allChains.find(c => c.name === token.chain || c.id === token.chainId);
     if (chain) {
       setSourceChain(chain);
     }
@@ -378,12 +467,12 @@ export default function Swap() {
                                 exit={{ opacity: 0, y: -10 }}
                                 className="absolute right-0 top-full mt-2 w-40 md:w-48 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden"
                               >
-                                {chains.map((chain) => (
+                                {allChains.map((chain) => (
                                   <button
                                     key={chain.id}
                                     onClick={() => {
                                       setSourceChain(chain);
-                                      const tokens = defaultTokens[chain.id];
+                                      const tokens = getChainTokens(chain.id);
                                       if (tokens && tokens[0]) {
                                         setSourceToken({ ...tokens[0] });
                                       }
@@ -422,7 +511,7 @@ export default function Swap() {
                                 exit={{ opacity: 0, y: -10 }}
                                 className="absolute right-0 top-full mt-2 w-40 md:w-48 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden"
                               >
-                                {(defaultTokens[sourceChain.id] || []).map((token) => (
+                                {getChainTokens(sourceChain.id).map((token) => (
                                   <button
                                     key={token.symbol}
                                     onClick={() => {

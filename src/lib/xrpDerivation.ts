@@ -1,6 +1,12 @@
 // XRP Address Derivation from Seed Phrase
 // Uses BIP39 for mnemonic validation and ripple-keypairs for XRP address derivation
 
+// Buffer polyfill for browser compatibility with bip39
+import { Buffer } from 'buffer';
+if (typeof window !== 'undefined' && !(window as any).Buffer) {
+  (window as any).Buffer = Buffer;
+}
+
 import * as bip39 from 'bip39';
 import { deriveKeypair, deriveAddress } from 'ripple-keypairs';
 
