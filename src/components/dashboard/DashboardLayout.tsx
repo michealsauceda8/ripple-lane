@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   LayoutDashboard, 
-  CreditCard, 
   ArrowRightLeft, 
   Wallet, 
   ShieldCheck, 
@@ -23,7 +22,6 @@ import BonusBanner from "@/components/promotional/BonusBanner";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Buy XRP", href: "/dashboard/buy", icon: CreditCard },
   { name: "Swap", href: "/dashboard/swap", icon: ArrowRightLeft },
   { name: "Wallets", href: "/dashboard/wallets", icon: Wallet },
   { name: "KYC Verification", href: "/dashboard/kyc", icon: ShieldCheck },

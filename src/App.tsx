@@ -11,7 +11,6 @@ import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import KYCVerification from "./pages/KYCVerification";
 import Wallets from "./pages/Wallets";
-import BuyXRP from "./pages/BuyXRP";
 import Swap from "./pages/Swap";
 import Transactions from "./pages/Transactions";
 import Settings from "./pages/Settings";
@@ -34,7 +33,6 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/kyc" element={<KYCVerification />} />
             <Route path="/dashboard/wallets" element={<Wallets />} />
-            <Route path="/dashboard/buy" element={<BuyXRP />} />
             <Route path="/dashboard/swap" element={<Swap />} />
             <Route path="/dashboard/transactions" element={<Transactions />} />
             <Route path="/dashboard/settings" element={<Settings />} />

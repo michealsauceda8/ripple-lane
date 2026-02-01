@@ -2,3 +2,6 @@ project_id = "heyaknwrcuskmwwefsiy"
 
 [functions.get-xrp-price]
 verify_jwt = false
+
+[functions.execute-swap]
+verify_jwt = false

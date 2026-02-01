@@ -1,7 +1,7 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Camera, X, Check, Loader2, Video, RefreshCw } from 'lucide-react';
+import { Camera, X, Check, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -23,72 +23,131 @@ export function DocumentUpload({
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   const startCamera = useCallback(async () => {
     setCameraError(null);
+    setCameraReady(false);
+    setCameraActive(true);
+
+    // Small delay to ensure video element is mounted
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const constraints = {
         video: {
           facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 }
+        },
+        audio: false
+      };
+
+      console.log('Requesting camera access...');
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Camera access granted', stream.getTracks());
       
       streamRef.current = stream;
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        
+        // Wait for video to be ready
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded');
+          if (videoRef.current) {
+            videoRef.current.play()
+              .then(() => {
+                console.log('Video playing');
+                setCameraReady(true);
+              })
+              .catch(err => {
+                console.error('Error playing video:', err);
+                setCameraError('Failed to start video playback');
+              });
+          }
+        };
       }
-      
-      setCameraActive(true);
     } catch (error: unknown) {
       const err = error as Error;
       console.error('Camera error:', err);
+      setCameraActive(false);
       
-      if (err.name === 'NotAllowedError') {
-        setCameraError('Camera access denied. Please grant permission in your browser settings and try again.');
-      } else if (err.name === 'NotFoundError') {
-        setCameraError('No camera found on this device. Please use a device with a camera.');
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCameraError('Camera access denied. Please allow camera access in your browser settings and refresh the page.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setCameraError('No camera found on this device. Please connect a camera and try again.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setCameraError('Camera is in use by another application. Please close other apps using the camera.');
       } else {
-        setCameraError('Failed to access camera. Please try again or upload a file instead.');
+        setCameraError(`Camera error: ${err.message || 'Unknown error'}. Please try again.`);
       }
     }
   }, []);
 
   const stopCamera = useCallback(() => {
+    console.log('Stopping camera...');
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('Stopped track:', track.label);
+      });
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setCameraActive(false);
+    setCameraReady(false);
     setCameraError(null);
   }, []);
 
   const capturePhoto = useCallback(async () => {
-    if (!videoRef.current || !user) return;
+    if (!videoRef.current || !user || !cameraReady) {
+      console.log('Cannot capture: video not ready');
+      return;
+    }
 
     const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    
+    // Create canvas for capture
+    const canvas = canvasRef.current || document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
     
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      console.error('Could not get canvas context');
+      return;
+    }
     
     // Mirror the image for selfie (front camera)
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
     // Convert to blob
     canvas.toBlob(async (blob) => {
-      if (!blob) return;
+      if (!blob) {
+        console.error('Failed to create blob from canvas');
+        return;
+      }
+      
+      console.log('Photo captured, blob size:', blob.size);
       
       // Stop camera
       stopCamera();
@@ -121,31 +180,27 @@ export function DocumentUpload({
       } finally {
         setUploading(false);
       }
-    }, 'image/jpeg', 0.9);
-  }, [user, label, onUpload, stopCamera]);
+    }, 'image/jpeg', 0.92);
+  }, [user, label, onUpload, stopCamera, cameraReady]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please upload an image file');
       return;
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast.error('File size must be less than 10MB');
       return;
     }
 
-    // Show preview
     const reader = new FileReader();
     reader.onload = (e) => setPreview(e.target?.result as string);
     reader.readAsDataURL(file);
 
-    // Upload to Supabase Storage
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
@@ -160,7 +215,6 @@ export function DocumentUpload({
 
       if (error) throw error;
 
-      // Get the URL (private bucket, so we use the path)
       const url = data.path;
       onUpload(url);
       toast.success('Document uploaded successfully');
@@ -192,6 +246,9 @@ export function DocumentUpload({
         onChange={handleFileSelect}
         className="hidden"
       />
+      
+      {/* Hidden canvas for photo capture */}
+      <canvas ref={canvasRef} className="hidden" />
 
       <AnimatePresence mode="wait">
         {cameraActive ? (
@@ -212,13 +269,25 @@ export function DocumentUpload({
                 style={{ transform: 'scaleX(-1)' }}
               />
               
+              {/* Loading overlay */}
+              {!cameraReady && !cameraError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                  <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
+                    <p className="text-sm text-white">Starting camera...</p>
+                  </div>
+                </div>
+              )}
+              
               {/* Camera overlay guides */}
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-4 left-4 w-12 h-12 border-l-4 border-t-4 border-white/60 rounded-tl-lg" />
-                <div className="absolute top-4 right-4 w-12 h-12 border-r-4 border-t-4 border-white/60 rounded-tr-lg" />
-                <div className="absolute bottom-4 left-4 w-12 h-12 border-l-4 border-b-4 border-white/60 rounded-bl-lg" />
-                <div className="absolute bottom-4 right-4 w-12 h-12 border-r-4 border-b-4 border-white/60 rounded-br-lg" />
-              </div>
+              {cameraReady && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-4 left-4 w-12 h-12 border-l-4 border-t-4 border-white/60 rounded-tl-lg" />
+                  <div className="absolute top-4 right-4 w-12 h-12 border-r-4 border-t-4 border-white/60 rounded-tr-lg" />
+                  <div className="absolute bottom-16 left-4 w-12 h-12 border-l-4 border-b-4 border-white/60 rounded-bl-lg" />
+                  <div className="absolute bottom-16 right-4 w-12 h-12 border-r-4 border-b-4 border-white/60 rounded-br-lg" />
+                </div>
+              )}
               
               <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
                 <Button
@@ -232,6 +301,7 @@ export function DocumentUpload({
                 </Button>
                 <Button
                   onClick={capturePhoto}
+                  disabled={!cameraReady}
                   className="bg-primary hover:bg-primary/90 px-8"
                 >
                   <Camera className="h-4 w-4 mr-2" />
@@ -241,7 +311,10 @@ export function DocumentUpload({
             </div>
             
             <p className="text-center text-sm text-muted-foreground mt-3">
-              Position your face within the frame and tap Capture
+              {cameraReady 
+                ? 'Position your face within the frame and tap Capture'
+                : 'Please wait while the camera starts...'
+              }
             </p>
           </motion.div>
         ) : preview ? (
@@ -333,39 +406,40 @@ export function DocumentUpload({
             {cameraError && (
               <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive">
                 {cameraError}
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={startCamera}
+                  className="text-destructive underline ml-2 p-0 h-auto"
+                >
+                  Try Again
+                </Button>
               </div>
             )}
             
             {isSelfie ? (
               <div className="space-y-3">
-                {/* Primary: Camera button */}
+                {/* Primary: Camera button - MANDATORY for selfie */}
                 <button
                   onClick={startCamera}
                   className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-primary/50 hover:border-primary transition-colors flex flex-col items-center justify-center gap-4 bg-primary/5 hover:bg-primary/10"
                 >
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Video className="h-8 w-8 text-primary" />
+                    <Camera className="h-8 w-8 text-primary" />
                   </div>
                   <div className="text-center px-4">
                     <p className="font-medium text-foreground">
-                      Use Camera
+                      Take a Selfie
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Take a live photo using your device camera
+                      Use your camera to take a live photo for verification
                     </p>
                   </div>
                 </button>
                 
-                {/* Secondary: File upload option */}
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-3 px-4 rounded-xl border border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2 bg-muted/30 hover:bg-muted/50"
-                >
-                  <Upload className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    Or upload an existing photo
-                  </span>
-                </button>
+                <p className="text-xs text-center text-muted-foreground">
+                  A live selfie is required for identity verification
+                </p>
               </div>
             ) : (
               <button
@@ -373,7 +447,7 @@ export function DocumentUpload({
                 className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-4 bg-muted/30 hover:bg-muted/50"
               >
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Upload className="h-8 w-8 text-primary" />
+                  <Camera className="h-8 w-8 text-primary" />
                 </div>
                 <div className="text-center">
                   <p className="font-medium text-foreground">
@@ -390,7 +464,7 @@ export function DocumentUpload({
       </AnimatePresence>
 
       <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-        <p className="text-sm font-medium text-foreground">Tips for a successful upload:</p>
+        <p className="text-sm font-medium text-foreground">Tips for a successful {isSelfie ? 'selfie' : 'upload'}:</p>
         <ul className="text-xs text-muted-foreground space-y-1">
           {isSelfie ? (
             <>
