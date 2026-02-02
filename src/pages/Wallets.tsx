@@ -18,7 +18,9 @@ import {
   Key,
   ArrowLeft,
   ChevronDown,
-  RefreshCw
+  RefreshCw,
+  Send,
+  Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -54,11 +56,14 @@ export default function Wallets() {
   const walletStore = useWalletStore();
   const [importing, setImporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [selectedWallet, setSelectedWallet] = useState<typeof walletConfigs[0] | null>(null);
   const [seedPhrase, setSeedPhrase] = useState('');
-  const [step, setStep] = useState<'select' | 'import' | 'create' | 'backup'>('select');
+  const [walletName, setWalletName] = useState('');
+  const [step, setStep] = useState<'select' | 'import' | 'backup'>('select');
   const [generatedSeedPhrase, setGeneratedSeedPhrase] = useState('');
   const [expandedWallet, setExpandedWallet] = useState<string | null>(null);
+  const [selectedWalletForTx, setSelectedWalletForTx] = useState<string | null>(null);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
 
   // Get multi-wallet balances
   const walletsForBalances = walletStore.importedWallets.map(w => ({
@@ -79,7 +84,7 @@ export default function Wallets() {
   };
 
   const handleImportWallet = async () => {
-    if (!selectedWallet || !seedPhrase.trim()) {
+    if (!seedPhrase.trim()) {
       toast.error('Please enter your recovery phrase');
       return;
     }
@@ -105,15 +110,18 @@ export default function Wallets() {
       // Fetch XRP balance
       const xrpBalance = await fetchXrpBalance(xrpAddress);
       
+      // Generate wallet name if not provided
+      const finalWalletName = walletName.trim() || `Wallet ${walletStore.importedWallets.length + 1}`;
+      
       // Save to database
-      const result = await connectWallet(selectedWallet.id, xrpAddress, 'xrp');
+      const result = await connectWallet('multi', xrpAddress, 'xrp');
       
       if (result.error) {
         toast.error(result.error);
       } else {
         // Add to local store
         walletStore.addImportedWallet({
-          name: selectedWallet.name,
+          name: finalWalletName,
           xrpAddress,
           xrpBalance,
           evmAddress,
@@ -123,7 +131,7 @@ export default function Wallets() {
           seedHash,
         });
 
-        toast.success(`${selectedWallet.name} imported successfully!`);
+        toast.success(`${finalWalletName} imported successfully!`);
         resetModal();
         refetch();
         refetchBalances();
@@ -137,8 +145,6 @@ export default function Wallets() {
   };
 
   const handleCreateWallet = async () => {
-    if (!selectedWallet) return;
-
     setImporting(true);
     
     try {
@@ -156,15 +162,18 @@ export default function Wallets() {
       // Fetch XRP balance
       const xrpBalance = await fetchXrpBalance(xrpAddress);
       
+      // Generate wallet name if not provided
+      const finalWalletName = walletName.trim() || `Wallet ${walletStore.importedWallets.length + 1}`;
+      
       // Save to database
-      const result = await connectWallet(selectedWallet.id, xrpAddress, 'xrp');
+      const result = await connectWallet('multi', xrpAddress, 'xrp');
       
       if (result.error) {
         toast.error(result.error);
       } else {
         // Add to local store
         walletStore.addImportedWallet({
-          name: selectedWallet.name,
+          name: finalWalletName,
           xrpAddress,
           xrpBalance,
           evmAddress,
@@ -174,7 +183,7 @@ export default function Wallets() {
           seedHash,
         });
 
-        toast.success(`${selectedWallet.name} created successfully!`);
+        toast.success(`${finalWalletName} created successfully!`);
         resetModal();
         refetch();
         refetchBalances();
@@ -207,8 +216,8 @@ export default function Wallets() {
 
   const resetModal = () => {
     setShowImportModal(false);
-    setSelectedWallet(null);
     setSeedPhrase('');
+    setWalletName('');
     setGeneratedSeedPhrase('');
     setStep('select');
   };
@@ -378,6 +387,34 @@ export default function Wallets() {
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground">Total Value</p>
                         <p className="font-semibold text-foreground">{formatUSD(walletAssets.totalValueUSD)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setSelectedWalletForTx(walletAssets.id);
+                            setShowSendModal(true);
+                          }}
+                          className="h-8 px-3"
+                        >
+                          <Send className="w-3 h-3 mr-1" />
+                          Send
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setSelectedWalletForTx(walletAssets.id);
+                            setShowReceiveModal(true);
+                          }}
+                          className="h-8 px-3"
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          Receive
+                        </Button>
                       </div>
                       <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </div>
@@ -568,7 +605,7 @@ export default function Wallets() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
                   >
-                    <h2 className="text-2xl font-bold text-foreground mb-2">Choose Action</h2>
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Add Wallet</h2>
                     <p className="text-muted-foreground mb-6">
                       Import an existing wallet or create a new one.
                     </p>
@@ -580,13 +617,17 @@ export default function Wallets() {
                       >
                         <Import className="w-6 h-6" />
                         <div className="text-left">
-                          <div className="font-semibold">Import Existing Wallet</div>
+                          <div className="font-semibold">Import Wallet</div>
                           <div className="text-sm opacity-90">Use your recovery phrase to import a wallet</div>
                         </div>
                       </Button>
                       
                       <Button
-                        onClick={() => setStep('create')}
+                        onClick={() => {
+                          const newPhrase = generateSeedPhrase();
+                          setGeneratedSeedPhrase(newPhrase);
+                          setStep('backup');
+                        }}
                         variant="outline"
                         className="w-full p-6 h-auto flex items-center justify-start gap-4 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                       >
@@ -600,7 +641,7 @@ export default function Wallets() {
                   </motion.div>
                 )}
 
-                {step === 'import' && selectedWallet && (
+                {step === 'import' && (
                   <motion.div
                     key="import"
                     initial={{ opacity: 0, x: 20 }}
@@ -616,12 +657,12 @@ export default function Wallets() {
                     </button>
 
                     <div className="flex items-center gap-3 mb-4">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${selectedWallet.color} flex items-center justify-center overflow-hidden`}>
-                        <img src={selectedWallet.icon} alt={selectedWallet.name} className="w-8 h-8 object-contain" />
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center overflow-hidden">
+                        <Import className="w-8 h-8 text-primary-foreground" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-bold text-foreground">{selectedWallet.name}</h2>
-                        <p className="text-sm text-muted-foreground">{selectedWallet.chain}</p>
+                        <h2 className="text-xl font-bold text-foreground">Import Wallet</h2>
+                        <p className="text-sm text-muted-foreground">Multi-chain wallet</p>
                       </div>
                     </div>
 
@@ -638,6 +679,22 @@ export default function Wallets() {
                     </div>
 
                     <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
+                          Wallet Name (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={`Wallet ${walletStore.importedWallets.length + 1}`}
+                          value={walletName}
+                          onChange={(e) => setWalletName(e.target.value)}
+                          className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Leave empty for auto-generated name
+                        </p>
+                      </div>
+
                       <div>
                         <label className="text-sm font-medium text-foreground mb-2 block">
                           <Key className="w-4 h-4 inline mr-2" />
@@ -675,52 +732,7 @@ export default function Wallets() {
                   </motion.div>
                 )}
 
-                {step === 'create' && (
-                  <motion.div
-                    key="create"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                  >
-                    <h2 className="text-2xl font-bold text-foreground mb-2">Create New Wallet</h2>
-                    <p className="text-muted-foreground mb-6">
-                      Select your wallet type to create a new wallet with a generated recovery phrase.
-                    </p>
-                    
-                    <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-                      {walletConfigs.map((wallet, idx) => (
-                        <button
-                          key={`${wallet.id}-${idx}`}
-                          onClick={() => {
-                            setSelectedWallet(wallet);
-                            const newPhrase = generateSeedPhrase();
-                            setGeneratedSeedPhrase(newPhrase);
-                            setStep('backup');
-                          }}
-                          className="w-full p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center gap-4"
-                        >
-                          <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${wallet.color} flex items-center justify-center overflow-hidden flex-shrink-0`}>
-                            <img 
-                              src={wallet.icon} 
-                              alt={wallet.name} 
-                              className="w-8 h-8 object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          </div>
-                          <div className="flex-1 text-left">
-                            <span className="font-semibold text-foreground">{wallet.name}</span>
-                            <div className="text-sm text-muted-foreground">{wallet.description}</div>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-
-                {step === 'backup' && selectedWallet && (
+                {step === 'backup' && (
                   <motion.div
                     key="backup"
                     initial={{ opacity: 0, x: 20 }}
@@ -728,7 +740,7 @@ export default function Wallets() {
                     exit={{ opacity: 0, x: -20 }}
                   >
                     <button
-                      onClick={() => setStep('create')}
+                      onClick={() => setStep('select')}
                       className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4"
                     >
                       <ArrowLeft className="w-4 h-4" />
@@ -736,12 +748,12 @@ export default function Wallets() {
                     </button>
 
                     <div className="flex items-center gap-3 mb-4">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${selectedWallet.color} flex items-center justify-center overflow-hidden`}>
-                        <img src={selectedWallet.icon} alt={selectedWallet.name} className="w-8 h-8 object-contain" />
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center overflow-hidden">
+                        <Key className="w-8 h-8 text-primary-foreground" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-bold text-foreground">{selectedWallet.name}</h2>
-                        <p className="text-sm text-muted-foreground">{selectedWallet.chain}</p>
+                        <h2 className="text-xl font-bold text-foreground">Create New Wallet</h2>
+                        <p className="text-sm text-muted-foreground">Multi-chain wallet</p>
                       </div>
                     </div>
 
@@ -761,6 +773,22 @@ export default function Wallets() {
                     </div>
 
                     <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
+                          Wallet Name (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={`Wallet ${walletStore.importedWallets.length + 1}`}
+                          value={walletName}
+                          onChange={(e) => setWalletName(e.target.value)}
+                          className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Leave empty for auto-generated name
+                        </p>
+                      </div>
+
                       <div>
                         <label className="text-sm font-medium text-foreground mb-2 block">
                           <Key className="w-4 h-4 inline mr-2" />
@@ -822,6 +850,183 @@ export default function Wallets() {
                 className="w-full mt-6"
               >
                 Cancel
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Send Modal */}
+      <AnimatePresence>
+        {showSendModal && selectedWalletForTx && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+            onClick={() => setShowSendModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card rounded-2xl border border-border p-6 w-full max-w-md"
+            >
+              <h2 className="text-2xl font-bold text-foreground mb-4">Send Crypto</h2>
+              <p className="text-muted-foreground mb-6">
+                Send functionality is coming soon! For now, you can send crypto directly from your wallet addresses.
+              </p>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">Selected Wallet</p>
+                  <p className="font-medium">{walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.name}</p>
+                </div>
+                
+                <div className="text-center text-muted-foreground">
+                  <p className="text-sm">Use external wallets or exchanges to send crypto to these addresses:</p>
+                  <div className="mt-4 space-y-2">
+                    <div className="p-3 bg-muted/30 rounded text-xs font-mono">
+                      XRP: {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => setShowSendModal(false)}
+                className="w-full mt-6"
+              >
+                Close
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Receive Modal */}
+      <AnimatePresence>
+        {showReceiveModal && selectedWalletForTx && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+            onClick={() => setShowReceiveModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card rounded-2xl border border-border p-6 w-full max-w-md"
+            >
+              <h2 className="text-2xl font-bold text-foreground mb-4">Receive Crypto</h2>
+              <p className="text-muted-foreground mb-6">
+                Share these addresses to receive crypto from others.
+              </p>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">Selected Wallet</p>
+                  <p className="font-medium">{walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.name}</p>
+                </div>
+                
+                {/* XRP Address */}
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">XRP Ledger</span>
+                    <button
+                      onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress || '')}
+                      className="p-1 hover:bg-muted rounded"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs font-mono break-all">
+                    {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress}
+                  </p>
+                </div>
+
+                {/* EVM Address */}
+                {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress && (
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Ethereum & EVM Chains</span>
+                      <button
+                        onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress || '')}
+                        className="p-1 hover:bg-muted rounded"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs font-mono break-all">
+                      {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress}
+                    </p>
+                  </div>
+                )}
+
+                {/* Solana Address */}
+                {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress && (
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Solana</span>
+                      <button
+                        onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress || '')}
+                        className="p-1 hover:bg-muted rounded"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs font-mono break-all">
+                      {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress}
+                    </p>
+                  </div>
+                )}
+
+                {/* TRON Address */}
+                {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress && (
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">TRON</span>
+                      <button
+                        onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress || '')}
+                        className="p-1 hover:bg-muted rounded"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs font-mono break-all">
+                      {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress}
+                    </p>
+                  </div>
+                )}
+
+                {/* Bitcoin Address */}
+                {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress && (
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Bitcoin</span>
+                      <button
+                        onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress || '')}
+                        className="p-1 hover:bg-muted rounded"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs font-mono break-all">
+                      {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                onClick={() => setShowReceiveModal(false)}
+                className="w-full mt-6"
+              >
+                Close
               </Button>
             </motion.div>
           </motion.div>
