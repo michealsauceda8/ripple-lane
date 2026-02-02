@@ -55,6 +55,7 @@ interface WalletState {
   getImportedWallet: (id: string) => ImportedWallet | undefined;
   hasImportedWallets: () => boolean;
   getPrimaryWallet: () => ImportedWallet | undefined;
+  setImportedWallets: (wallets: ImportedWallet[]) => void;
 
   // Legacy compatibility
   xrpAddress: string | null;
@@ -166,6 +167,18 @@ export const useWalletStore = create<WalletState>()(
 
       getPrimaryWallet: () => {
         return get().importedWallets[0];
+      },
+
+      setImportedWallets: (wallets) => {
+        set((state) => {
+          const primary = wallets[0];
+          return {
+            importedWallets: wallets,
+            xrpAddress: primary?.xrpAddress ?? null,
+            xrpBalance: primary?.xrpBalance ?? null,
+            importedWalletName: primary?.name ?? null,
+          };
+        });
       },
 
       // Legacy compatibility

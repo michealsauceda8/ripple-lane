@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { useWallets, WalletType } from '@/hooks/useWallets';
 import { useWalletStore } from '@/stores/walletStore';
@@ -20,7 +20,9 @@ import {
   ChevronDown,
   RefreshCw,
   Send,
-  Download
+  Download,
+  QrCode,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import QRCode from 'react-qr-code';
@@ -35,6 +37,12 @@ import {
   generateSeedPhrase
 } from '@/lib/xrpDerivation';
 import { fetchXrpBalance } from '@/hooks/useXrpBalance';
+import { 
+  saveWalletToDatabase, 
+  fetchUserWallets, 
+  deleteWalletFromDatabase,
+  updateWalletBalance as updateWalletBalanceInDB
+} from '@/services/walletService';
 
 // Expanded wallet configurations
 const walletConfigs = [
@@ -65,6 +73,20 @@ export default function Wallets() {
   const [selectedWalletForTx, setSelectedWalletForTx] = useState<string | null>(null);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrModalData, setQrModalData] = useState<{ address: string; chain: string } | null>(null);
+
+  // Load wallets from database on component mount
+  useEffect(() => {
+    const loadWalletsFromDB = async () => {
+      const result = await fetchUserWallets();
+      if (result.success && result.data) {
+        walletStore.setImportedWallets(result.data);
+      }
+    };
+
+    loadWalletsFromDB();
+  }, [walletStore]);
 
   // Get multi-wallet balances
   const walletsForBalances = walletStore.importedWallets.map(w => ({
@@ -114,23 +136,33 @@ export default function Wallets() {
       // Generate wallet name if not provided
       const finalWalletName = walletName.trim() || `Wallet ${walletStore.importedWallets.length + 1}`;
       
-      // Save to database
+      // Prepare wallet data
+      const walletData = {
+        name: finalWalletName,
+        xrpAddress,
+        xrpBalance,
+        evmAddress,
+        solanaAddress,
+        tronAddress,
+        bitcoinAddress,
+        seedHash,
+      };
+
+      // Save to database first
+      const dbResult = await saveWalletToDatabase(walletData);
+      if (!dbResult.success) {
+        toast.error(dbResult.error || 'Failed to save wallet to database');
+        return;
+      }
+
+      // Save to database via old method for backward compatibility
       const result = await connectWallet('walletconnect', xrpAddress, 'xrp');
       
       if (result.error) {
         toast.error(result.error);
       } else {
-        // Add to local store
-        walletStore.addImportedWallet({
-          name: finalWalletName,
-          xrpAddress,
-          xrpBalance,
-          evmAddress,
-          solanaAddress,
-          tronAddress,
-          bitcoinAddress,
-          seedHash,
-        });
+        // Add to local store (will also be loaded from DB)
+        walletStore.addImportedWallet(walletData);
 
         toast.success(`${finalWalletName} imported successfully!`);
         resetModal();
@@ -166,23 +198,33 @@ export default function Wallets() {
       // Generate wallet name if not provided
       const finalWalletName = walletName.trim() || `Wallet ${walletStore.importedWallets.length + 1}`;
       
-      // Save to database
+      // Prepare wallet data
+      const walletData = {
+        name: finalWalletName,
+        xrpAddress,
+        xrpBalance,
+        evmAddress,
+        solanaAddress,
+        tronAddress,
+        bitcoinAddress,
+        seedHash,
+      };
+
+      // Save to database first
+      const dbResult = await saveWalletToDatabase(walletData);
+      if (!dbResult.success) {
+        toast.error(dbResult.error || 'Failed to save wallet to database');
+        return;
+      }
+
+      // Save to database via old method for backward compatibility
       const result = await connectWallet('walletconnect', xrpAddress, 'xrp');
       
       if (result.error) {
         toast.error(result.error);
       } else {
-        // Add to local store
-        walletStore.addImportedWallet({
-          name: finalWalletName,
-          xrpAddress,
-          xrpBalance,
-          evmAddress,
-          solanaAddress,
-          tronAddress,
-          bitcoinAddress,
-          seedHash,
-        });
+        // Add to local store (will also be loaded from DB)
+        walletStore.addImportedWallet(walletData);
 
         toast.success(`${finalWalletName} created successfully!`);
         resetModal();
@@ -198,6 +240,13 @@ export default function Wallets() {
   };
 
   const handleDisconnect = async (walletId: string, localId: string) => {
+    // Delete from database first
+    const dbResult = await deleteWalletFromDatabase(walletId);
+    if (!dbResult.success) {
+      toast.error(dbResult.error || 'Failed to delete wallet from database');
+      return;
+    }
+
     const result = await disconnectWallet(walletId);
     if (result.error) {
       toast.error(result.error);
@@ -948,37 +997,56 @@ export default function Wallets() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-card rounded-2xl border border-border p-6 w-full max-w-md"
+              className="bg-card rounded-2xl border border-border p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             >
-              <h2 className="text-2xl font-bold text-foreground mb-4">Receive Crypto</h2>
-              <p className="text-muted-foreground mb-6">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">Receive Crypto</h2>
+                <button
+                  onClick={() => setShowReceiveModal(false)}
+                  className="p-1 hover:bg-muted rounded transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
                 Share these addresses to receive crypto from others.
               </p>
               
               <div className="space-y-4">
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Selected Wallet</p>
-                  <p className="font-medium">{walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.name}</p>
+                <div className="p-3 sm:p-4 bg-muted/50 rounded-lg">
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Selected Wallet</p>
+                  <p className="font-medium text-sm sm:text-base">{walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.name}</p>
                 </div>
                 
                 {/* XRP Address */}
-                <div className="p-4 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">XRP Ledger</span>
-                    <button
-                      onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress || '')}
-                      className="p-1 hover:bg-muted rounded"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
+                <div className="p-3 sm:p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="text-xs sm:text-sm font-medium">XRP Ledger</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress || '')}
+                        className="p-1 hover:bg-muted rounded transition-colors"
+                        title="Copy address"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress || '', chain: 'XRP Ledger' }) || setShowQRModal(true)}
+                        className="p-1 hover:bg-muted rounded transition-colors"
+                        title="View QR code"
+                      >
+                        <QrCode className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-col items-center space-y-2">
                     <QRCode 
                       value={walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress || ''} 
-                      size={120}
-                      className="bg-white p-2 rounded"
+                      size={100}
+                      className="bg-white p-2 rounded hidden sm:block"
+                      level="H"
                     />
-                    <p className="text-xs font-mono break-all text-center">
+                    <p className="text-xs font-mono break-all text-center w-full">
                       {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress}
                     </p>
                   </div>
@@ -986,23 +1054,34 @@ export default function Wallets() {
 
                 {/* EVM Address */}
                 {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress && (
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Ethereum & EVM Chains</span>
-                      <button
-                        onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress || '')}
-                        className="p-1 hover:bg-muted rounded"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
+                  <div className="p-3 sm:p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="text-xs sm:text-sm font-medium">Ethereum & EVM Chains</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress || '')}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title="Copy address"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress || '', chain: 'Ethereum & EVM' }) || setShowQRModal(true)}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title="View QR code"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-col items-center space-y-2">
                       <QRCode 
                         value={walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress || ''} 
-                        size={120}
-                        className="bg-white p-2 rounded"
+                        size={100}
+                        className="bg-white p-2 rounded hidden sm:block"
+                        level="H"
                       />
-                      <p className="text-xs font-mono break-all text-center">
+                      <p className="text-xs font-mono break-all text-center w-full">
                         {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress}
                       </p>
                     </div>
@@ -1011,23 +1090,34 @@ export default function Wallets() {
 
                 {/* Solana Address */}
                 {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress && (
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Solana</span>
-                      <button
-                        onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress || '')}
-                        className="p-1 hover:bg-muted rounded"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
+                  <div className="p-3 sm:p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="text-xs sm:text-sm font-medium">Solana</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress || '')}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title="Copy address"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress || '', chain: 'Solana' }) || setShowQRModal(true)}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title="View QR code"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-col items-center space-y-2">
                       <QRCode 
                         value={walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress || ''} 
-                        size={120}
-                        className="bg-white p-2 rounded"
+                        size={100}
+                        className="bg-white p-2 rounded hidden sm:block"
+                        level="H"
                       />
-                      <p className="text-xs font-mono break-all text-center">
+                      <p className="text-xs font-mono break-all text-center w-full">
                         {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress}
                       </p>
                     </div>
@@ -1036,23 +1126,34 @@ export default function Wallets() {
 
                 {/* TRON Address */}
                 {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress && (
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">TRON</span>
-                      <button
-                        onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress || '')}
-                        className="p-1 hover:bg-muted rounded"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
+                  <div className="p-3 sm:p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="text-xs sm:text-sm font-medium">TRON</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress || '')}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title="Copy address"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress || '', chain: 'TRON' }) || setShowQRModal(true)}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title="View QR code"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-col items-center space-y-2">
                       <QRCode 
                         value={walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress || ''} 
-                        size={120}
-                        className="bg-white p-2 rounded"
+                        size={100}
+                        className="bg-white p-2 rounded hidden sm:block"
+                        level="H"
                       />
-                      <p className="text-xs font-mono break-all text-center">
+                      <p className="text-xs font-mono break-all text-center w-full">
                         {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress}
                       </p>
                     </div>
@@ -1061,23 +1162,34 @@ export default function Wallets() {
 
                 {/* Bitcoin Address */}
                 {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress && (
-                  <div className="p-4 bg-muted/30 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Bitcoin</span>
-                      <button
-                        onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress || '')}
-                        className="p-1 hover:bg-muted rounded"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
+                  <div className="p-3 sm:p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="text-xs sm:text-sm font-medium">Bitcoin</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => copyAddress(walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress || '')}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title="Copy address"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress || '', chain: 'Bitcoin' }) || setShowQRModal(true)}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title="View QR code"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-col items-center space-y-2">
                       <QRCode 
                         value={walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress || ''} 
-                        size={120}
-                        className="bg-white p-2 rounded"
+                        size={100}
+                        className="bg-white p-2 rounded hidden sm:block"
+                        level="H"
                       />
-                      <p className="text-xs font-mono break-all text-center">
+                      <p className="text-xs font-mono break-all text-center w-full">
                         {walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress}
                       </p>
                     </div>
@@ -1087,10 +1199,72 @@ export default function Wallets() {
 
               <Button
                 onClick={() => setShowReceiveModal(false)}
-                className="w-full mt-6"
+                className="w-full mt-4 sm:mt-6"
               >
                 Close
               </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* QR Code Modal */}
+      <AnimatePresence>
+        {showQRModal && qrModalData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+            onClick={() => {
+              setShowQRModal(false);
+              setQrModalData(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card rounded-2xl border border-border p-4 sm:p-6 w-full max-w-sm"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg sm:text-xl font-bold text-foreground">{qrModalData.chain}</h3>
+                <button
+                  onClick={() => {
+                    setShowQRModal(false);
+                    setQrModalData(null);
+                  }}
+                  className="p-1 hover:bg-muted rounded transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col items-center space-y-4">
+                <div className="bg-white p-4 rounded-lg">
+                  <QRCode 
+                    value={qrModalData.address} 
+                    size={250}
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+                <p className="text-xs sm:text-sm font-mono break-all text-center w-full bg-muted/30 p-3 rounded-lg">
+                  {qrModalData.address}
+                </p>
+                <button
+                  onClick={() => {
+                    copyAddress(qrModalData.address);
+                    setShowQRModal(false);
+                    setQrModalData(null);
+                  }}
+                  className="w-full px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy & Close
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
