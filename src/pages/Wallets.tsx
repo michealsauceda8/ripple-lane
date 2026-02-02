@@ -101,11 +101,6 @@ export default function Wallets() {
   
   const { wallets: walletsWithAssets, totalPortfolioValue, totalXrpBalance, loading: balancesLoading, refetch: refetchBalances } = useMultiWalletBalances(walletsForBalances);
 
-  const handleSelectWallet = (wallet: typeof walletConfigs[0]) => {
-    setSelectedWallet(wallet);
-    setStep('import');
-  };
-
   const handleImportWallet = async () => {
     if (!seedPhrase.trim()) {
       toast.error('Please enter your recovery phrase');
@@ -277,42 +272,45 @@ export default function Wallets() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <Wallet className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold text-foreground">Wallets</h1>
+      <div className="mb-6 sm:mb-8 flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Wallet className="w-6 h-6 sm:w-8 sm:h-8 text-primary flex-shrink-0" />
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground truncate">Wallets</h1>
           </div>
-          <p className="text-muted-foreground">
-            Import your wallets to receive XRP from swaps.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
           <Button
+            size="sm"
             variant="outline"
             onClick={() => refetchBalances()}
             disabled={balancesLoading}
+            className="flex-shrink-0"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${balancesLoading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`w-4 h-4 ${balancesLoading ? 'animate-spin' : ''}`} />
           </Button>
+        </div>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Import your wallets to receive XRP from swaps.
+        </p>
+        <div className="flex flex-col xs:flex-row gap-2 sm:gap-3">
           <Button
+            size="sm"
             variant="outline"
             onClick={() => {
               setShowImportModal(true);
               setStep('create');
             }}
-            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground order-2 xs:order-1 text-xs sm:text-sm"
           >
-            <Key className="w-4 h-4 mr-2" />
-            Create Wallet
+            <Key className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Create</span>
           </Button>
           <Button
+            size="sm"
             onClick={() => setShowImportModal(true)}
-            className="bg-primary hover:bg-primary/90"
+            className="bg-primary hover:bg-primary/90 order-1 xs:order-2 text-xs sm:text-sm flex-1 xs:flex-none"
           >
-            <Import className="w-4 h-4 mr-2" />
-            Import Wallet
+            <Import className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Import</span>
           </Button>
         </div>
       </div>
@@ -322,15 +320,15 @@ export default function Wallets() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="grid sm:grid-cols-2 gap-4 mb-6"
+          className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6"
         >
-          <div className="bg-card rounded-xl border border-border p-6">
-            <p className="text-sm text-muted-foreground mb-1">Total Portfolio Value</p>
-            <p className="text-3xl font-bold text-foreground">{formatUSD(totalPortfolioValue)}</p>
+          <div className="bg-card rounded-lg sm:rounded-xl border border-border p-3 sm:p-4 lg:p-6">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Total Portfolio Value</p>
+            <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground break-words">{formatUSD(totalPortfolioValue)}</p>
           </div>
-          <div className="bg-card rounded-xl border border-border p-6">
-            <p className="text-sm text-muted-foreground mb-1">Total XRP Balance</p>
-            <p className="text-3xl font-bold text-primary">{totalXrpBalance.toFixed(2)} XRP</p>
+          <div className="bg-card rounded-lg sm:rounded-xl border border-border p-3 sm:p-4 lg:p-6">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Total XRP Balance</p>
+            <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary">{totalXrpBalance.toFixed(2)} <span className="text-base sm:text-lg lg:text-2xl">XRP</span></p>
           </div>
         </motion.div>
       )}
@@ -339,13 +337,13 @@ export default function Wallets() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-6"
+        className="bg-amber-500/10 border border-amber-500/20 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-4 sm:mb-6"
       >
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 sm:gap-3">
+          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-amber-500 mb-1">Why import your wallet?</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="font-medium text-amber-500 mb-0.5 sm:mb-1 text-sm sm:text-base">Why import your wallet?</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               To receive XRP from swaps, you need to import your wallet using your recovery phrase. 
               This allows us to derive your XRP address and detect your assets across multiple chains.
             </p>
@@ -429,42 +427,42 @@ export default function Wallets() {
               >
                 {/* Wallet Header */}
                 <div 
-                  className="p-6 cursor-pointer hover:bg-muted/30 transition-colors"
+                  className="p-3 sm:p-4 lg:p-6 cursor-pointer hover:bg-muted/30 transition-colors"
                   onClick={() => setExpandedWallet(isExpanded ? null : walletAssets.id)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center overflow-hidden">
-                        <Wallet className="w-6 h-6 text-primary-foreground" />
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-foreground">{walletAssets.name}</span>
-                          <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs font-medium">
+                          <span className="font-semibold text-sm sm:text-base text-foreground truncate">{walletAssets.name}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs font-medium flex-shrink-0">
                             XRP Ready
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span className="font-mono">{truncateAddress(walletAssets.xrpAddress)}</span>
+                        <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                          <span className="font-mono truncate">{truncateAddress(walletAssets.xrpAddress)}</span>
                           <button
                             onClick={(e) => { e.stopPropagation(); copyAddress(walletAssets.xrpAddress); }}
-                            className="p-1 hover:bg-muted rounded transition-colors"
+                            className="p-1 hover:bg-muted rounded transition-colors flex-shrink-0"
                           >
-                            <Copy className="w-3.5 h-3.5" />
+                            <Copy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                           </button>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">XRP Balance</p>
-                        <p className="font-semibold text-primary">{parseFloat(walletAssets.xrpBalance).toFixed(2)} XRP</p>
+                    <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                      <div className="text-right text-xs">
+                        <p className="text-muted-foreground">XRP Balance</p>
+                        <p className="font-semibold text-primary text-sm">{parseFloat(walletAssets.xrpBalance).toFixed(2)}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Total Value</p>
-                        <p className="font-semibold text-foreground">{formatUSD(walletAssets.totalValueUSD)}</p>
+                      <div className="hidden md:block text-right text-xs">
+                        <p className="text-muted-foreground">Total Value</p>
+                        <p className="font-semibold text-foreground text-sm">{formatUSD(walletAssets.totalValueUSD)}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <Button
                           size="sm"
                           variant="outline"
@@ -473,10 +471,10 @@ export default function Wallets() {
                             setSelectedWalletForTx(walletAssets.id);
                             setShowSendModal(true);
                           }}
-                          className="h-8 px-3"
+                          className="h-8 px-2 text-xs"
                         >
-                          <Send className="w-3 h-3 mr-1" />
-                          Send
+                          <Send className="w-3 h-3" />
+                          <span className="hidden sm:inline ml-1">Send</span>
                         </Button>
                         <Button
                           size="sm"
@@ -486,13 +484,13 @@ export default function Wallets() {
                             setSelectedWalletForTx(walletAssets.id);
                             setShowReceiveModal(true);
                           }}
-                          className="h-8 px-3"
+                          className="h-8 px-2 text-xs"
                         >
-                          <Download className="w-3 h-3 mr-1" />
-                          Receive
+                          <Download className="w-3 h-3" />
+                          <span className="hidden sm:inline ml-1">Receive</span>
                         </Button>
                       </div>
-                      <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
                     </div>
                   </div>
                 </div>
@@ -506,100 +504,100 @@ export default function Wallets() {
                       exit={{ height: 0, opacity: 0 }}
                       className="border-t border-border overflow-hidden"
                     >
-                      <div className="p-6 space-y-4">
+                      <div className="p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
                         {/* Chain Addresses */}
-                        <div className="space-y-3">
-                          <h4 className="text-sm font-medium text-muted-foreground">Chain Addresses</h4>
+                        <div className="space-y-2 sm:space-y-3">
+                          <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Chain Addresses</h4>
                           
                           {/* XRP Address */}
-                          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <span className="text-xl">✕</span>
-                              <div>
-                                <p className="font-medium text-foreground">XRP Ledger</p>
-                                <p className="text-xs text-muted-foreground font-mono">{truncateAddress(walletAssets.xrpAddress)}</p>
+                          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 xs:gap-3 p-2 sm:p-3 bg-muted/30 rounded-lg">
+                            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                              <span className="text-lg sm:text-xl flex-shrink-0">✕</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-xs sm:text-sm text-foreground">XRP Ledger</p>
+                                <p className="text-xs text-muted-foreground font-mono break-all">{truncateAddress(walletAssets.xrpAddress)}</p>
                               </div>
                             </div>
                             <button
                               onClick={() => copyAddress(walletAssets.xrpAddress)}
-                              className="p-2 hover:bg-muted rounded transition-colors"
+                              className="p-1 sm:p-2 hover:bg-muted rounded transition-colors flex-shrink-0"
                             >
-                              <Copy className="w-4 h-4" />
+                              <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                           </div>
 
                           {/* EVM Address */}
                           {walletAssets.evmAddress && (
-                            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xl">⟠</span>
-                                <div>
-                                  <p className="font-medium text-foreground">Ethereum & EVM Chains</p>
-                                  <p className="text-xs text-muted-foreground font-mono">{truncateAddress(walletAssets.evmAddress)}</p>
+                            <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 xs:gap-3 p-2 sm:p-3 bg-muted/30 rounded-lg">
+                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                <span className="text-lg sm:text-xl flex-shrink-0">⟠</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-xs sm:text-sm text-foreground">Ethereum & EVM Chains</p>
+                                  <p className="text-xs text-muted-foreground font-mono break-all">{truncateAddress(walletAssets.evmAddress)}</p>
                                 </div>
                               </div>
                               <button
                                 onClick={() => copyAddress(walletAssets.evmAddress)}
-                                className="p-2 hover:bg-muted rounded transition-colors"
+                                className="p-1 sm:p-2 hover:bg-muted rounded transition-colors flex-shrink-0"
                               >
-                                <Copy className="w-4 h-4" />
+                                <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
                               </button>
                             </div>
                           )}
 
                           {/* Solana Address */}
                           {walletAssets.solanaAddress && (
-                            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xl">◎</span>
-                                <div>
-                                  <p className="font-medium text-foreground">Solana</p>
-                                  <p className="text-xs text-muted-foreground font-mono">{truncateAddress(walletAssets.solanaAddress)}</p>
+                            <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 xs:gap-3 p-2 sm:p-3 bg-muted/30 rounded-lg">
+                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                <span className="text-lg sm:text-xl flex-shrink-0">◎</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-xs sm:text-sm text-foreground">Solana</p>
+                                  <p className="text-xs text-muted-foreground font-mono break-all">{truncateAddress(walletAssets.solanaAddress)}</p>
                                 </div>
                               </div>
                               <button
                                 onClick={() => copyAddress(walletAssets.solanaAddress)}
-                                className="p-2 hover:bg-muted rounded transition-colors"
+                                className="p-1 sm:p-2 hover:bg-muted rounded transition-colors flex-shrink-0"
                               >
-                                <Copy className="w-4 h-4" />
+                                <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
                               </button>
                             </div>
                           )}
 
                           {/* TRON Address */}
                           {walletAssets.tronAddress && (
-                            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xl">⚡</span>
-                                <div>
-                                  <p className="font-medium text-foreground">TRON</p>
-                                  <p className="text-xs text-muted-foreground font-mono">{truncateAddress(walletAssets.tronAddress)}</p>
+                            <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 xs:gap-3 p-2 sm:p-3 bg-muted/30 rounded-lg">
+                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                <span className="text-lg sm:text-xl flex-shrink-0">⚡</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-xs sm:text-sm text-foreground">TRON</p>
+                                  <p className="text-xs text-muted-foreground font-mono break-all">{truncateAddress(walletAssets.tronAddress)}</p>
                                 </div>
                               </div>
                               <button
                                 onClick={() => copyAddress(walletAssets.tronAddress)}
-                                className="p-2 hover:bg-muted rounded transition-colors"
+                                className="p-1 sm:p-2 hover:bg-muted rounded transition-colors flex-shrink-0"
                               >
-                                <Copy className="w-4 h-4" />
+                                <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
                               </button>
                             </div>
                           )}
 
                           {/* Bitcoin Address */}
                           {walletAssets.bitcoinAddress && (
-                            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xl">₿</span>
-                                <div>
-                                  <p className="font-medium text-foreground">Bitcoin</p>
-                                  <p className="text-xs text-muted-foreground font-mono">{truncateAddress(walletAssets.bitcoinAddress)}</p>
+                            <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 xs:gap-3 p-2 sm:p-3 bg-muted/30 rounded-lg">
+                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                <span className="text-lg sm:text-xl flex-shrink-0">₿</span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-xs sm:text-sm text-foreground">Bitcoin</p>
+                                  <p className="text-xs text-muted-foreground font-mono break-all">{truncateAddress(walletAssets.bitcoinAddress)}</p>
                                 </div>
                               </div>
                               <button
                                 onClick={() => copyAddress(walletAssets.bitcoinAddress)}
-                                className="p-2 hover:bg-muted rounded transition-colors"
+                                className="p-1 sm:p-2 hover:bg-muted rounded transition-colors flex-shrink-0"
                               >
-                                <Copy className="w-4 h-4" />
+                                <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
                               </button>
                             </div>
                           )}
@@ -607,22 +605,22 @@ export default function Wallets() {
 
                         {/* Assets by Chain */}
                         {Object.entries(tokensByChain).length > 0 && (
-                          <div className="space-y-3">
-                            <h4 className="text-sm font-medium text-muted-foreground">Assets by Chain</h4>
+                          <div className="space-y-2 sm:space-y-3">
+                            <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Assets by Chain</h4>
                             {Object.entries(tokensByChain).map(([chain, tokens]) => (
                               <div key={chain}>
-                                <h5 className="text-sm font-medium text-foreground mb-2">{chain}</h5>
-                                <div className="space-y-2">
+                                <h5 className="text-xs sm:text-sm font-medium text-foreground mb-1 sm:mb-2">{chain}</h5>
+                                <div className="space-y-1 sm:space-y-2">
                                   {tokens.map((token, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-xl">{token.icon}</span>
-                                        <div>
-                                          <p className="font-medium text-foreground">{token.symbol}</p>
-                                          <p className="text-xs text-muted-foreground">{token.name}</p>
+                                    <div key={idx} className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 xs:gap-3 p-2 sm:p-3 bg-muted/30 rounded-lg">
+                                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                        <span className="text-lg sm:text-xl flex-shrink-0">{token.icon}</span>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="font-medium text-xs sm:text-sm text-foreground">{token.symbol}</p>
+                                          <p className="text-xs text-muted-foreground truncate">{token.name}</p>
                                         </div>
                                       </div>
-                                      <div className="text-right">
+                                      <div className="text-right text-xs sm:text-sm flex-shrink-0">
                                         <p className="font-medium text-foreground">{parseFloat(token.balance).toFixed(4)}</p>
                                         <p className="text-xs text-muted-foreground">{formatUSD(token.balanceUSD)}</p>
                                       </div>
@@ -635,14 +633,14 @@ export default function Wallets() {
                         )}
 
                         {/* Remove Button */}
-                        <div className="pt-4 border-t border-border">
+                        <div className="pt-3 sm:pt-4 border-t border-border">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => dbWallet && localWallet && handleDisconnect(dbWallet.id, localWallet.id)}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs sm:text-sm w-full sm:w-auto"
                           >
-                            <Trash2 className="w-4 h-4 mr-1" />
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                             Remove Wallet
                           </Button>
                         </div>
