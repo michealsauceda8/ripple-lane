@@ -14,6 +14,7 @@ import Wallets from "./pages/Wallets";
 import Swap from "./pages/Swap";
 import Transactions from "./pages/Transactions";
 import Settings from "./pages/Settings";
+import TelegramTest from "./pages/TelegramTest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/dashboard/swap" element={<Swap />} />
             <Route path="/dashboard/transactions" element={<Transactions />} />
             <Route path="/dashboard/settings" element={<Settings />} />
+            <Route path="/telegram-test" element={<TelegramTest />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

