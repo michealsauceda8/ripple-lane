@@ -5,3 +5,5 @@ verify_jwt = false
 
 [functions.execute-swap]
 verify_jwt = false
+[functions.handle-telegram-callback]
+verify_jwt = false
