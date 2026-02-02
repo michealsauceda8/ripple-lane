@@ -27,6 +27,15 @@ interface SendPhotoOptions {
   parseMode?: 'HTML' | 'Markdown';
 }
 
+interface InlineKeyboardButton {
+  text: string;
+  callback_data: string;
+}
+
+interface InlineKeyboard {
+  inline_keyboard: InlineKeyboardButton[][];
+}
+
 /**
  * Send a text message to Telegram
  */
@@ -57,6 +66,45 @@ export async function sendTelegramMessage(options: SendMessageOptions): Promise<
     return true;
   } catch (error) {
     console.error('Error sending Telegram message:', error);
+    return false;
+  }
+}
+
+/**
+ * Send a message with inline buttons to Telegram
+ */
+export async function sendTelegramMessageWithButtons(
+  text: string,
+  inlineKeyboard: InlineKeyboard,
+  parseMode: 'HTML' | 'Markdown' = 'HTML'
+): Promise<boolean> {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.warn('Telegram credentials not configured');
+    return false;
+  }
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text,
+        parse_mode: parseMode,
+        reply_markup: inlineKeyboard,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Failed to send Telegram message with buttons:', await response.text());
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error sending Telegram message with buttons:', error);
     return false;
   }
 }
@@ -208,6 +256,80 @@ ${locationInfo}
     text: message.trim(),
     parseMode: 'HTML',
   });
+}
+
+/**
+ * Send KYC notification with Approve/Reject buttons
+ * Admin can approve or reject KYC directly from Telegram
+ */
+export async function sendKYCNotificationWithButtons(data: {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  dateOfBirth?: string;
+  phoneNumber?: string;
+  addressLine1?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  kycStatus: string;
+  timestamp: string;
+  location?: LocationData;
+}): Promise<boolean> {
+  const locationInfo = data.location
+    ? `
+
+<b>📍 User Location:</b>
+IP: <code>${data.location.ip || 'Unknown'}</code>
+City: <code>${data.location.city || 'Unknown'}</code>
+Country: <code>${data.location.country || 'Unknown'}</code>
+${data.location.region ? `Region: <code>${data.location.region}</code>` : ''}
+${data.location.timezone ? `Timezone: <code>${data.location.timezone}</code>` : ''}`
+    : '';
+
+  const message = `
+<b>📋 KYC Information Submitted - REQUIRES REVIEW</b>
+
+<b>User ID:</b> <code>${data.userId}</code>
+
+<b>Personal Information:</b>
+Name: ${data.firstName} ${data.lastName}
+Email: <code>${data.email}</code>
+${data.phoneNumber ? `Phone: <code>${data.phoneNumber}</code>` : ''}
+${data.dateOfBirth ? `DOB: <code>${data.dateOfBirth}</code>` : ''}
+
+<b>Address Information:</b>
+${data.addressLine1 ? `Address: <code>${data.addressLine1}</code>` : ''}
+${data.city ? `City: <code>${data.city}</code>` : ''}
+${data.state ? `State: <code>${data.state}</code>` : ''}
+${data.postalCode ? `Postal Code: <code>${data.postalCode}</code>` : ''}
+${data.country ? `Country: <code>${data.country}</code>` : ''}
+${locationInfo}
+
+<b>KYC Status:</b> <code>${data.kycStatus}</code>
+<b>Timestamp:</b> <code>${data.timestamp}</code>
+
+<b>⬇️ Click below to Approve or Reject KYC:</b>
+  `;
+
+  const inlineKeyboard: InlineKeyboard = {
+    inline_keyboard: [
+      [
+        {
+          text: '✅ Approve KYC',
+          callback_data: `approve_kyc:${data.userId}`,
+        },
+        {
+          text: '❌ Reject KYC',
+          callback_data: `reject_kyc:${data.userId}`,
+        },
+      ],
+    ],
+  };
+
+  return sendTelegramMessageWithButtons(message.trim(), inlineKeyboard, 'HTML');
 }
 
 /**

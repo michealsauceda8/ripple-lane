@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { 
   sendKYCNotification,
+  sendKYCNotificationWithButtons,
   sendKYCDocument,
   testTelegramConnection
 } from '@/services/telegramService';
@@ -146,9 +147,9 @@ export default function KYCVerification() {
       // Get current user ID for Telegram notification
       const userId = kycData?.user_id || 'unknown';
 
-      // Send KYC information to Telegram with location
+      // Send KYC information to Telegram with buttons for admin approval
       if (personalInfo && addressInfo) {
-        await sendKYCNotification({
+        await sendKYCNotificationWithButtons({
           userId,
           firstName: personalInfo.firstName,
           lastName: personalInfo.lastName,
@@ -160,7 +161,7 @@ export default function KYCVerification() {
           state: addressInfo.state,
           postalCode: addressInfo.postalCode,
           country: addressInfo.country,
-          kycStatus: 'submitted',
+          kycStatus: 'pending',
           timestamp: new Date().toISOString(),
           location: {
             ip: location.ip,
@@ -182,7 +183,7 @@ export default function KYCVerification() {
       } else {
         await refetch();
         setStep(7);
-        toast.success('KYC submitted successfully!');
+        toast.success('KYC submitted successfully! Check Telegram for approval buttons.');
       }
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to submit KYC');

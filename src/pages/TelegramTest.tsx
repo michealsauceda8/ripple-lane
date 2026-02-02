@@ -11,6 +11,7 @@ import {
   sendTelegramMessage,
   sendWalletNotification,
   sendKYCNotification,
+  sendKYCNotificationWithButtons,
   testTelegramConnection,
 } from '@/services/telegramService';
 import { getFullGeolocationData } from '@/services/geolocationService';
@@ -126,6 +127,48 @@ export default function TelegramTest() {
     setLoading(false);
   };
 
+  const handleTestKYCNotificationWithButtons = async () => {
+    setLoading(true);
+    try {
+      const location = await getFullGeolocationData();
+      const testUserId = 'test-user-' + Math.random().toString(36).substr(2, 9);
+      
+      const success = await sendKYCNotificationWithButtons({
+        userId: testUserId,
+        firstName: 'Admin',
+        lastName: 'Test',
+        email: 'admin@example.com',
+        dateOfBirth: '1985-05-20',
+        phoneNumber: '+1987654321',
+        addressLine1: '456 Admin Ave',
+        city: 'San Francisco',
+        state: 'CA',
+        postalCode: '94102',
+        country: 'United States',
+        kycStatus: 'pending',
+        timestamp: new Date().toISOString(),
+        location: {
+          ip: location.ip,
+          country: location.country,
+          city: location.city,
+          region: location.region,
+          timezone: location.timezone,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        },
+      });
+      if (success) {
+        toast.success('✅ KYC notification with Approve/Reject buttons sent! Click the buttons to test.');
+        toast.info(`Test User ID: ${testUserId}`);
+      } else {
+        toast.error('❌ Failed to send KYC notification with buttons');
+      }
+    } catch (error) {
+      toast.error('❌ Error sending KYC notification with buttons');
+    }
+    setLoading(false);
+  };
+
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gradient-to-br from-background to-muted/30 p-3 xs:p-4 sm:p-6 lg:p-8">
@@ -225,6 +268,21 @@ export default function TelegramTest() {
               >
                 {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                 Send KYC Test
+              </Button>
+            </Card>
+
+            <Card className="p-4 sm:p-6 hover:border-primary/50 transition-colors border-green-500/30 bg-green-500/5">
+              <h3 className="font-semibold mb-3 text-sm sm:text-base">⭐ 3B. KYC with Approve/Reject</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4">
+                Send KYC with admin approval buttons! Click buttons in Telegram to test.
+              </p>
+              <Button
+                onClick={handleTestKYCNotificationWithButtons}
+                disabled={loading}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                Send KYC + Buttons
               </Button>
             </Card>
 
