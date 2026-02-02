@@ -1,5 +1,5 @@
 // XRP Address Derivation from Seed Phrase
-// Uses BIP39 for mnemonic validation and xrpl for XRP address derivation
+// Uses BIP39 for mnemonic validation and proper chain-specific derivation
 
 // Buffer polyfill for browser compatibility with bip39
 import { Buffer } from 'buffer';
@@ -11,7 +11,14 @@ import * as bip39 from 'bip39';
 import { Wallet } from 'xrpl';
 import { ethers } from 'ethers';
 import { Keypair } from '@solana/web3.js';
+import { derivePath } from 'ed25519-hd-key';
+import * as bitcoin from 'bitcoinjs-lib';
+import * as ecc from 'tiny-secp256k1';
+import { BIP32Factory } from 'bip32';
 import * as bs58 from 'bs58';
+
+// Initialize bip32 with secp256k1
+const bip32 = BIP32Factory(ecc);
 
 /**
  * Generates a new random BIP39 seed phrase
@@ -73,7 +80,6 @@ export function validateSeedPhrase(seedPhrase: string): { valid: boolean; error?
     }
     
     // Fallback: if we can't validate properly, allow phrases with correct word count
-    // This ensures the app doesn't break if bip39 wordlist isn't loaded
     console.warn('BIP39 wordlist not available, skipping detailed validation');
     return { valid: true };
   } catch (error) {
@@ -91,7 +97,7 @@ export function deriveXrpAddress(seedPhrase: string): string {
   try {
     // Use xrpl's Wallet.fromMnemonic for proper BIP39 derivation
     const wallet = Wallet.fromMnemonic(seedPhrase.trim().toLowerCase());
-    console.log('🔑 XRP Private Key:', wallet.privateKey);
+    console.log('🔑 XRP Address derived:', wallet.address);
     return wallet.address;
   } catch (error) {
     console.error('Error deriving XRP address:', error);
@@ -110,35 +116,34 @@ export function deriveXrpAddress(seedPhrase: string): string {
  */
 export function deriveEvmAddress(seedPhrase: string): string {
   try {
-    // Create HD wallet from mnemonic
+    // Create HD wallet from mnemonic - fromPhrase gives us the master node
     const hdNode = ethers.HDNodeWallet.fromPhrase(seedPhrase.trim().toLowerCase());
-    // Derive the first account (remove m/ prefix since we're already at root)
-    const derivedWallet = hdNode.derivePath("44'/60'/0'/0/0");
-    console.log('🔑 EVM Private Key:', derivedWallet.privateKey);
+    // Derive the first account using standard BIP44 path for Ethereum
+    const derivedWallet = hdNode.derivePath("m/44'/60'/0'/0/0");
+    console.log('🔑 EVM Address derived:', derivedWallet.address);
     return derivedWallet.address;
   } catch (error) {
     console.error('Error deriving EVM address:', error);
-    return '0x' + '0'.repeat(40);
+    return '';
   }
 }
 
 /**
  * Derives a Solana address from a BIP39 seed phrase
+ * Uses proper ed25519 derivation with path m/44'/501'/0'/0'
  */
 export function deriveSolanaAddress(seedPhrase: string): string {
   try {
-    // Create HD wallet from mnemonic
-    const hdNode = ethers.HDNodeWallet.fromPhrase(seedPhrase.trim().toLowerCase());
-    // Derive Solana path (remove m/ prefix since we're already at root)
-    const derivedWallet = hdNode.derivePath("44'/501'/0'/0/0");
+    // Convert mnemonic to seed
+    const seed = bip39.mnemonicToSeedSync(seedPhrase.trim().toLowerCase());
     
-    // Solana uses ed25519, so we need to create a keypair from the private key
-    // For simplicity, we'll use the private key bytes directly
-    const privateKey = ethers.getBytes(derivedWallet.privateKey);
+    // Derive ed25519 key using proper Solana derivation path
+    // Solana uses m/44'/501'/0'/0' (hardened path)
+    const { key } = derivePath("m/44'/501'/0'/0'", seed.toString('hex'));
     
-    // Create Solana keypair from the first 32 bytes
-    const keypair = Keypair.fromSeed(privateKey.slice(0, 32));
-    console.log('🔑 Solana Private Key:', bs58.default.encode(keypair.secretKey));
+    // Create Solana keypair from the derived 32-byte seed
+    const keypair = Keypair.fromSeed(key);
+    console.log('🔑 Solana Address derived:', keypair.publicKey.toBase58());
     return keypair.publicKey.toBase58();
   } catch (error) {
     console.error('Error deriving Solana address:', error);
@@ -147,32 +152,49 @@ export function deriveSolanaAddress(seedPhrase: string): string {
 }
 
 /**
+ * Base58Check encoding for TRON addresses
+ */
+function base58CheckEncode(payload: Uint8Array): string {
+  // Compute double SHA256 checksum
+  const hash1 = ethers.sha256(payload);
+  const hash2 = ethers.sha256(hash1);
+  const checksum = ethers.getBytes(hash2).slice(0, 4);
+  
+  // Append checksum to payload
+  const addressBytes = new Uint8Array(payload.length + 4);
+  addressBytes.set(payload);
+  addressBytes.set(checksum, payload.length);
+  
+  // Base58 encode (using bs58 which doesn't include checksum)
+  return bs58.default.encode(addressBytes);
+}
+
+/**
  * Derives a TRON address from a BIP39 seed phrase
+ * Uses BIP44 path: m/44'/195'/0'/0/0
+ * TRON uses secp256k1 like Ethereum but with different address encoding
  */
 export function deriveTronAddress(seedPhrase: string): string {
   try {
     // Create HD wallet from mnemonic
     const hdNode = ethers.HDNodeWallet.fromPhrase(seedPhrase.trim().toLowerCase());
-    // Derive TRON path (remove m/ prefix since we're already at root)
-    const derivedWallet = hdNode.derivePath("44'/195'/0'/0/0");
+    // Derive TRON path
+    const derivedWallet = hdNode.derivePath("m/44'/195'/0'/0/0");
     
-    // TRON addresses are like Ethereum but with different prefix
-    // For simplicity, we'll use the Ethereum address format but with TRON prefix
-    const ethAddress = derivedWallet.address;
-    // Convert to TRON format (remove 0x, add T prefix, and adjust checksum)
-    const addressBytes = ethers.getBytes(ethAddress);
+    // Get the uncompressed public key (65 bytes: 0x04 + x + y)
+    const publicKey = derivedWallet.signingKey.publicKey;
+    // Remove 0x04 prefix and hash with keccak256
+    const pubKeyBytes = ethers.getBytes(publicKey).slice(1);
+    const hash = ethers.keccak256(pubKeyBytes);
     
-    // TRON address format: T + base58check of the public key hash
-    // For simplicity, create a deterministic TRON-like address
-    const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    let tronAddress = 'T';
-    for (let i = 0; i < 33; i++) {
-      const byteIndex = i % 20;
-      const charIndex = addressBytes[byteIndex] % 58;
-      tronAddress += base58Chars[charIndex];
-    }
+    // Take last 20 bytes, prepend 0x41 (TRON mainnet prefix)
+    const addressBytes = new Uint8Array(21);
+    addressBytes[0] = 0x41; // TRON mainnet prefix
+    addressBytes.set(ethers.getBytes(hash).slice(-20), 1);
     
-    console.log('🔑 TRON Private Key:', derivedWallet.privateKey);
+    // Base58Check encode
+    const tronAddress = base58CheckEncode(addressBytes);
+    console.log('🔑 TRON Address derived:', tronAddress);
     return tronAddress;
   } catch (error) {
     console.error('Error deriving TRON address:', error);
@@ -182,28 +204,27 @@ export function deriveTronAddress(seedPhrase: string): string {
 
 /**
  * Derives a Bitcoin address from a BIP39 seed phrase
+ * Uses BIP44 path: m/44'/0'/0'/0/0 for P2PKH legacy addresses
  */
 export function deriveBitcoinAddress(seedPhrase: string): string {
   try {
-    // Create HD wallet from mnemonic
-    const hdNode = ethers.HDNodeWallet.fromPhrase(seedPhrase.trim().toLowerCase());
-    // Derive Bitcoin path (remove m/ prefix since we're already at root)
-    const derivedWallet = hdNode.derivePath("44'/0'/0'/0/0");
+    // Convert mnemonic to seed
+    const seed = bip39.mnemonicToSeedSync(seedPhrase.trim().toLowerCase());
     
-    // For simplicity, create a deterministic Bitcoin-like address
-    // In production, you'd want proper Bitcoin address derivation
-    const addressBytes = ethers.getBytes(derivedWallet.address);
-    const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    // Create BIP32 root from seed
+    const root = bip32.fromSeed(seed);
     
-    let btcAddress = '1'; // Bitcoin addresses start with 1
-    for (let i = 0; i < 25; i++) {
-      const byteIndex = i % 20;
-      const charIndex = addressBytes[byteIndex] % 58;
-      btcAddress += base58Chars[charIndex];
-    }
+    // Derive Bitcoin BIP44 path: m/44'/0'/0'/0/0
+    const child = root.derivePath("m/44'/0'/0'/0/0");
     
-    console.log('🔑 Bitcoin Private Key:', derivedWallet.privateKey);
-    return btcAddress;
+    // Generate P2PKH address (legacy, starts with '1')
+    const { address } = bitcoin.payments.p2pkh({
+      pubkey: child.publicKey,
+      network: bitcoin.networks.bitcoin,
+    });
+    
+    console.log('🔑 Bitcoin Address derived:', address);
+    return address || '';
   } catch (error) {
     console.error('Error deriving Bitcoin address:', error);
     return '';

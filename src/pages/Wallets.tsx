@@ -58,10 +58,11 @@ export default function Wallets() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [seedPhrase, setSeedPhrase] = useState('');
   const [walletName, setWalletName] = useState('');
-  const [step, setStep] = useState<'select' | 'import' | 'backup'>('select');
+  const [step, setStep] = useState<'select' | 'import' | 'backup' | 'create'>('select');
   const [generatedSeedPhrase, setGeneratedSeedPhrase] = useState('');
   const [expandedWallet, setExpandedWallet] = useState<string | null>(null);
   const [selectedWalletForTx, setSelectedWalletForTx] = useState<string | null>(null);
+  const [selectedWalletConfig, setSelectedWalletConfig] = useState<typeof walletConfigs[0] | null>(null);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
 
@@ -79,7 +80,7 @@ export default function Wallets() {
   const { wallets: walletsWithAssets, totalPortfolioValue, totalXrpBalance, loading: balancesLoading, refetch: refetchBalances } = useMultiWalletBalances(walletsForBalances);
 
   const handleSelectWallet = (wallet: typeof walletConfigs[0]) => {
-    setSelectedWallet(wallet);
+    setSelectedWalletConfig(wallet);
     setStep('import');
   };
 
