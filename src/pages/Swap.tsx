@@ -92,6 +92,16 @@ export default function Swap() {
   const [showSettings, setShowSettings] = useState(false);
   const [step, setStep] = useState<'input' | 'confirm' | 'processing' | 'success'>('input');
 
+  // Initialize sourceChain to first chain with balance
+  useEffect(() => {
+    if (chainsWithBalance.length > 0) {
+      const firstChainWithBalance = ALL_CHAINS.find(chain => chainsWithBalance.includes(chain.id));
+      if (firstChainWithBalance && firstChainWithBalance.id !== sourceChain.id) {
+        setSourceChain(firstChainWithBalance);
+      }
+    }
+  }, [chainsWithBalance, sourceChain.id]);
+
   // Auto-select first wallet if available
   useEffect(() => {
     if (!selectedWallet && walletStore.importedWallets.length > 0) {
