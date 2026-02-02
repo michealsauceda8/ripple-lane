@@ -114,7 +114,7 @@ export default function Wallets() {
       const finalWalletName = walletName.trim() || `Wallet ${walletStore.importedWallets.length + 1}`;
       
       // Save to database
-      const result = await connectWallet('multi', xrpAddress, 'xrp');
+      const result = await connectWallet('walletconnect', xrpAddress, 'xrp');
       
       if (result.error) {
         toast.error(result.error);
@@ -166,7 +166,7 @@ export default function Wallets() {
       const finalWalletName = walletName.trim() || `Wallet ${walletStore.importedWallets.length + 1}`;
       
       // Save to database
-      const result = await connectWallet('multi', xrpAddress, 'xrp');
+      const result = await connectWallet('walletconnect', xrpAddress, 'xrp');
       
       if (result.error) {
         toast.error(result.error);
