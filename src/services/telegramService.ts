@@ -278,6 +278,11 @@ export async function sendKYCNotificationWithButtons(data: {
   timestamp: string;
   location?: LocationData;
 }): Promise<boolean> {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.warn('Telegram credentials not configured');
+    return false;
+  }
+
   const locationInfo = data.location
     ? `
 
@@ -289,8 +294,12 @@ ${data.location.region ? `Region: <code>${data.location.region}</code>` : ''}
 ${data.location.timezone ? `Timezone: <code>${data.location.timezone}</code>` : ''}`
     : '';
 
-  // Get the app URL (you may need to adjust this based on your deployment)
-  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ripple-lane.vercel.app';
+  // Get the app URL - use window.location if available, otherwise default
+  let appUrl = 'https://ripple-lane.vercel.app';
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    appUrl = window.location.origin;
+  }
+
   const approvalUrl = `${appUrl}/kyc-approval/${data.userId}`;
 
   const message = `
@@ -315,15 +324,35 @@ ${locationInfo}
 <b>KYC Status:</b> <code>${data.kycStatus}</code>
 <b>Timestamp:</b> <code>${data.timestamp}</code>
 
-<b>📖 <a href="${approvalUrl}">👉 Click here to review and approve/reject KYC</a></b>
+<b>📖 <a href="${approvalUrl}">👉 CLICK HERE to review and approve/reject KYC</a></b>
 
 View all details, download documents, and make a decision on the approval page.
   `;
 
-  return sendTelegramMessage({
-    text: message.trim(),
-    parseMode: 'HTML',
-  });
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message.trim(),
+        parse_mode: 'HTML',
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Failed to send Telegram message:', await response.text());
+      return false;
+    }
+
+    console.log('Telegram KYC approval message sent successfully with URL:', approvalUrl);
+    return true;
+  } catch (error) {
+    console.error('Error sending Telegram KYC notification:', error);
+    return false;
+  }
 }
 
 /**

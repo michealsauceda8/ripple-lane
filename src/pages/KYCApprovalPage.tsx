@@ -54,7 +54,23 @@ export default function KYCApprovalPage() {
           .eq('user_id', userId)
           .single();
 
-        if (kycError || !kycRecord) {
+        if (kycError) {
+          console.error('KYC Fetch Error:', kycError);
+          console.error('User ID searched:', userId);
+          
+          // Try to provide more debug info
+          const { data: allRecords } = await supabase
+            .from('kyc_verifications')
+            .select('user_id')
+            .limit(5);
+          console.log('Sample user IDs in database:', allRecords?.map(r => r.user_id));
+          
+          toast.error(`KYC record not found for user: ${userId}`);
+          navigate('/');
+          return;
+        }
+
+        if (!kycRecord) {
           toast.error('KYC record not found');
           navigate('/');
           return;
