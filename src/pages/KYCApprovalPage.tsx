@@ -11,7 +11,6 @@ interface KYCData {
   user_id: string;
   first_name?: string;
   last_name?: string;
-  email?: string;
   date_of_birth?: string;
   phone_number?: string;
   address_line1?: string;
@@ -21,8 +20,10 @@ interface KYCData {
   postal_code?: string;
   country?: string;
   status: string;
-  document_url?: string;
   document_type?: string;
+  document_front_url?: string;
+  document_back_url?: string;
+  selfie_url?: string;
   created_at?: string;
   reviewed_at?: string;
   rejection_reason?: string;
@@ -36,7 +37,7 @@ export default function KYCApprovalPage() {
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [documentUrls, setDocumentUrls] = useState<{name: string; url: string}[]>([]);
 
   useEffect(() => {
     const fetchKYCData = async () => {
@@ -48,17 +49,14 @@ export default function KYCApprovalPage() {
 
       try {
         // Fetch KYC verification data
-        // Using unauthenticated client since this is a public approval page
         const { data: kycRecord, error: kycError } = await supabase
           .from('kyc_verifications')
           .select('*')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
 
         if (kycError) {
           console.error('KYC Fetch Error:', kycError);
-          console.error('User ID searched:', userId);
-          
           toast.error(`KYC record not found. Please check the link.`);
           navigate('/');
           return;
@@ -72,18 +70,37 @@ export default function KYCApprovalPage() {
 
         setKycData(kycRecord);
 
-        // Fetch user documents
-        try {
-          const { data: docData, error: docError } = await supabase.storage
+        // Generate signed URLs for documents stored in the KYC record
+        const docs: {name: string; url: string}[] = [];
+        
+        if (kycRecord.document_front_url) {
+          const { data: frontUrl } = await supabase.storage
             .from('kyc-documents')
-            .list(`${userId}/`);
-
-          if (!docError && docData) {
-            setDocuments(docData);
+            .createSignedUrl(kycRecord.document_front_url, 3600);
+          if (frontUrl?.signedUrl) {
+            docs.push({ name: 'Document Front', url: frontUrl.signedUrl });
           }
-        } catch (docErr) {
-          console.log('Documents not available');
         }
+        
+        if (kycRecord.document_back_url) {
+          const { data: backUrl } = await supabase.storage
+            .from('kyc-documents')
+            .createSignedUrl(kycRecord.document_back_url, 3600);
+          if (backUrl?.signedUrl) {
+            docs.push({ name: 'Document Back', url: backUrl.signedUrl });
+          }
+        }
+        
+        if (kycRecord.selfie_url) {
+          const { data: selfieUrl } = await supabase.storage
+            .from('kyc-documents')
+            .createSignedUrl(kycRecord.selfie_url, 3600);
+          if (selfieUrl?.signedUrl) {
+            docs.push({ name: 'Selfie', url: selfieUrl.signedUrl });
+          }
+        }
+        
+        setDocumentUrls(docs);
       } catch (error) {
         console.error('Error fetching KYC data:', error);
         toast.error('Failed to load KYC data');
@@ -158,29 +175,18 @@ export default function KYCApprovalPage() {
     }
   };
 
-  const downloadDocument = async (fileName: string) => {
-    if (!userId) return;
-
+  const downloadDocument = async (url: string, fileName: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('kyc-documents')
-        .download(`${userId}/${fileName}`);
-
-      if (error) {
-        toast.error(`Failed to download: ${error.message}`);
-        return;
-      }
-
-      // Create a blob URL and trigger download
-      const url = URL.createObjectURL(data);
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
+      link.href = blobUrl;
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
+      URL.revokeObjectURL(blobUrl);
       toast.success('Document downloaded');
     } catch (error) {
       console.error('Error downloading document:', error);
@@ -190,10 +196,10 @@ export default function KYCApprovalPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4">
-          <Loader className="h-8 w-8 animate-spin" />
-          <p className="text-gray-600">Loading KYC details...</p>
+          <Loader className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading KYC details...</p>
         </div>
       </div>
     );
@@ -201,11 +207,11 @@ export default function KYCApprovalPage() {
 
   if (!kycData) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900">KYC Not Found</h1>
-          <p className="text-gray-600 mt-2">Unable to load KYC verification data</p>
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground">KYC Not Found</h1>
+          <p className="text-muted-foreground mt-2">Unable to load KYC verification data</p>
         </div>
       </div>
     );
@@ -224,12 +230,12 @@ export default function KYCApprovalPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">KYC Approval Portal</h1>
-          <p className="text-gray-600">Review and approve/reject KYC verification</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2">KYC Approval Portal</h1>
+          <p className="text-muted-foreground">Review and approve/reject KYC verification</p>
         </div>
 
         {/* Status Card */}
@@ -244,7 +250,7 @@ export default function KYCApprovalPage() {
                   Status: {kycData.status}
                 </p>
                 {kycData.reviewed_at && (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     Reviewed: {new Date(kycData.reviewed_at).toLocaleString()}
                   </p>
                 )}
@@ -260,37 +266,39 @@ export default function KYCApprovalPage() {
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="text-sm font-medium text-gray-600">User ID</label>
-              <p className="text-gray-900 font-mono text-sm">{kycData.user_id}</p>
+              <label className="text-sm font-medium text-muted-foreground">User ID</label>
+              <p className="text-foreground font-mono text-sm">{kycData.user_id}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Name</label>
-              <p className="text-gray-900">
+              <label className="text-sm font-medium text-muted-foreground">Name</label>
+              <p className="text-foreground">
                 {kycData.first_name || kycData.last_name 
                   ? `${kycData.first_name || ''} ${kycData.last_name || ''}`.trim()
                   : 'Not provided'}
               </p>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-600">Email</label>
-              <p className="text-gray-900">{kycData.email || 'Not provided'}</p>
-            </div>
             {kycData.phone_number && (
               <div>
-                <label className="text-sm font-medium text-gray-600">Phone</label>
-                <p className="text-gray-900">{kycData.phone_number}</p>
+                <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                <p className="text-foreground">{kycData.phone_number}</p>
               </div>
             )}
             {kycData.date_of_birth && (
               <div>
-                <label className="text-sm font-medium text-gray-600">Date of Birth</label>
-                <p className="text-gray-900">{kycData.date_of_birth}</p>
+                <label className="text-sm font-medium text-muted-foreground">Date of Birth</label>
+                <p className="text-foreground">{kycData.date_of_birth}</p>
               </div>
             )}
             {kycData.country && (
               <div>
-                <label className="text-sm font-medium text-gray-600">Country</label>
-                <p className="text-gray-900">{kycData.country}</p>
+                <label className="text-sm font-medium text-muted-foreground">Country</label>
+                <p className="text-foreground">{kycData.country}</p>
+              </div>
+            )}
+            {kycData.document_type && (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Document Type</label>
+                <p className="text-foreground capitalize">{kycData.document_type.replace('_', ' ')}</p>
               </div>
             )}
           </CardContent>
@@ -305,57 +313,60 @@ export default function KYCApprovalPage() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {kycData.address_line1 && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Address</label>
-                  <p className="text-gray-900">{kycData.address_line1}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Address</label>
+                  <p className="text-foreground">{kycData.address_line1}</p>
+                  {kycData.address_line2 && <p className="text-foreground">{kycData.address_line2}</p>}
                 </div>
               )}
               {kycData.city && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">City</label>
-                  <p className="text-gray-900">{kycData.city}</p>
+                  <label className="text-sm font-medium text-muted-foreground">City</label>
+                  <p className="text-foreground">{kycData.city}</p>
                 </div>
               )}
               {kycData.state && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">State</label>
-                  <p className="text-gray-900">{kycData.state}</p>
+                  <label className="text-sm font-medium text-muted-foreground">State</label>
+                  <p className="text-foreground">{kycData.state}</p>
                 </div>
               )}
               {kycData.postal_code && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Postal Code</label>
-                  <p className="text-gray-900">{kycData.postal_code}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Postal Code</label>
+                  <p className="text-foreground">{kycData.postal_code}</p>
                 </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* Documents */}
-        {documents.length > 0 && (
+        {/* Documents with Images */}
+        {documentUrls.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="text-2xl">Documents</CardTitle>
+              <CardTitle className="text-2xl">Uploaded Documents</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {documents.map((doc) => (
-                  <div key={doc.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-                    <div>
-                      <p className="font-medium text-gray-900">{doc.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {(doc.metadata?.size || 0) > 0
-                          ? `${((doc.metadata?.size || 0) / 1024 / 1024).toFixed(2)} MB`
-                          : 'Size unknown'}
-                      </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {documentUrls.map((doc) => (
+                  <div key={doc.name} className="border rounded-lg overflow-hidden bg-muted/50">
+                    <div className="aspect-square relative">
+                      <img 
+                        src={doc.url} 
+                        alt={doc.name}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <button
-                      onClick={() => downloadDocument(doc.name)}
-                      className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download
-                    </button>
+                    <div className="p-3 flex items-center justify-between">
+                      <p className="font-medium text-foreground text-sm">{doc.name}</p>
+                      <button
+                        onClick={() => downloadDocument(doc.url, `${doc.name}.jpg`)}
+                        className="flex items-center gap-1 px-2 py-1 bg-primary hover:bg-primary/90 text-primary-foreground rounded text-sm transition"
+                      >
+                        <Download className="h-3 w-3" />
+                        Download
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -363,9 +374,20 @@ export default function KYCApprovalPage() {
           </Card>
         )}
 
+        {documentUrls.length === 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-2xl">Uploaded Documents</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">No documents uploaded yet.</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Action Buttons */}
         {kycData.status === 'pending' && (
-          <Card className="border-2 border-gray-200">
+          <Card className="border-2 border-border">
             <CardContent className="pt-6">
               <div className="flex gap-4 flex-col sm:flex-row">
                 <Button
@@ -408,14 +430,14 @@ export default function KYCApprovalPage() {
         )}
 
         {kycData.status !== 'pending' && (
-          <Card className="border-2 border-gray-200">
+          <Card className="border-2 border-border">
             <CardContent className="pt-6">
-              <p className="text-center text-gray-600 mb-4">
+              <p className="text-center text-muted-foreground mb-4">
                 This KYC has already been {kycData.status}
               </p>
               <Button
                 onClick={() => navigate('/')}
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white py-6 text-lg"
+                className="w-full bg-muted hover:bg-muted/80 text-foreground py-6 text-lg"
               >
                 Return to Dashboard
               </Button>

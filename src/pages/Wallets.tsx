@@ -1087,7 +1087,10 @@ export default function Wallets() {
                         <Copy className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress || '', chain: 'XRP Ledger' }) || setShowQRModal(true)}
+                        onClick={() => {
+                          setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.xrpAddress || '', chain: 'XRP Ledger' });
+                          setShowQRModal(true);
+                        }}
                         className="p-1 hover:bg-muted rounded transition-colors"
                         title="View QR code"
                       >
@@ -1122,7 +1125,10 @@ export default function Wallets() {
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress || '', chain: 'Ethereum & EVM' }) || setShowQRModal(true)}
+                          onClick={() => {
+                            setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.evmAddress || '', chain: 'Ethereum & EVM' });
+                            setShowQRModal(true);
+                          }}
                           className="p-1 hover:bg-muted rounded transition-colors"
                           title="View QR code"
                         >
@@ -1158,7 +1164,10 @@ export default function Wallets() {
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress || '', chain: 'Solana' }) || setShowQRModal(true)}
+                          onClick={() => {
+                            setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.solanaAddress || '', chain: 'Solana' });
+                            setShowQRModal(true);
+                          }}
                           className="p-1 hover:bg-muted rounded transition-colors"
                           title="View QR code"
                         >
@@ -1194,7 +1203,10 @@ export default function Wallets() {
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress || '', chain: 'TRON' }) || setShowQRModal(true)}
+                          onClick={() => {
+                            setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.tronAddress || '', chain: 'TRON' });
+                            setShowQRModal(true);
+                          }}
                           className="p-1 hover:bg-muted rounded transition-colors"
                           title="View QR code"
                         >
@@ -1230,7 +1242,10 @@ export default function Wallets() {
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress || '', chain: 'Bitcoin' }) || setShowQRModal(true)}
+                          onClick={() => {
+                            setQrModalData({ address: walletStore.importedWallets.find(w => w.id === selectedWalletForTx)?.bitcoinAddress || '', chain: 'Bitcoin' });
+                            setShowQRModal(true);
+                          }}
                           className="p-1 hover:bg-muted rounded transition-colors"
                           title="View QR code"
                         >
@@ -1303,7 +1318,6 @@ export default function Wallets() {
                     value={qrModalData.address} 
                     size={250}
                     level="H"
-                    includeMargin={true}
                   />
                 </div>
                 <p className="text-xs sm:text-sm font-mono break-all text-center w-full bg-muted/30 p-3 rounded-lg">

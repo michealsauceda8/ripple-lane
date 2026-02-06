@@ -161,7 +161,7 @@ export default function KYCVerification() {
           userId,
           firstName: personalInfo.firstName,
           lastName: personalInfo.lastName,
-          email: kycData?.email || '',
+          email: authUser?.email || '',
           dateOfBirth: personalInfo.dateOfBirth,
           phoneNumber: personalInfo.phoneNumber,
           addressLine1: addressInfo.addressLine1,
