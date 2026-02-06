@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      imported_wallets: {
+        Row: {
+          bitcoin_address: string | null
+          created_at: string
+          evm_address: string | null
+          id: string
+          imported_at: string
+          name: string
+          seed_hash: string | null
+          solana_address: string | null
+          tron_address: string | null
+          updated_at: string
+          user_id: string
+          xrp_address: string
+          xrp_balance: string
+        }
+        Insert: {
+          bitcoin_address?: string | null
+          created_at?: string
+          evm_address?: string | null
+          id?: string
+          imported_at?: string
+          name?: string
+          seed_hash?: string | null
+          solana_address?: string | null
+          tron_address?: string | null
+          updated_at?: string
+          user_id: string
+          xrp_address: string
+          xrp_balance?: string
+        }
+        Update: {
+          bitcoin_address?: string | null
+          created_at?: string
+          evm_address?: string | null
+          id?: string
+          imported_at?: string
+          name?: string
+          seed_hash?: string | null
+          solana_address?: string | null
+          tron_address?: string | null
+          updated_at?: string
+          user_id?: string
+          xrp_address?: string
+          xrp_balance?: string
+        }
+        Relationships: []
+      }
       kyc_verifications: {
         Row: {
           address_line1: string | null
